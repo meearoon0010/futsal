@@ -68,6 +68,21 @@
             font-size: 0.9em;
         }
 
+        .conn-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.7em;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            background: #eee;
+            color: #888;
+        }
+
+        .conn-badge.live { background: #e8f5e9; color: #2e7d32; }
+        .conn-badge.down { background: #ffebee; color: #c62828; }
+
         .admin-toggle {
             position: absolute;
             top: 10px;
@@ -259,6 +274,10 @@
             transform: scale(0.98);
         }
 
+        .login-btn:disabled {
+            opacity: 0.6;
+        }
+
         .login-message {
             margin-top: 12px;
             padding: 10px;
@@ -335,6 +354,11 @@
             user-select: none;
             border: 2px solid transparent;
             transition: all 0.15s ease;
+        }
+
+        .action-btn.disabled {
+            opacity: 0.6;
+            pointer-events: none;
         }
 
         .btn-yes {
@@ -504,6 +528,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
+            <span class="conn-badge" id="connBadge">● connecting</span>
             <button class="admin-toggle hidden" id="adminToggle" onclick="toggleAdminPanel()">⚙️</button>
             <h1>⚽ Futsal Attendance</h1>
             <p class="venue" id="displayVenue">Khelkunja Arena</p>
@@ -612,59 +637,34 @@
         </div>
     </div>
 
+    <!-- Supabase client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
     <script>
-        // --- DATA ---
-        const ADMIN_NAME = "Arun";
-        const ADMIN_PASS = "admin10";
+        // =========================================================
+        // SUPABASE CONFIG — fill these in from your Supabase project
+        // (Project Settings > Data API / API keys). The anon key is
+        // safe to expose in client code; it has no power on its own
+        // beyond what the RLS policies + RPC functions in
+        // supabase_schema.sql allow.
+        // =========================================================
+        const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaWt5ZnNxb3lsZmd3c3ZlZ3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NzMzNTgsImV4cCI6MjEwNDU0OTM1OH0.Y8ChN4jNtD4Vat20xZ6AKNTRqz4rbh55pv3gps_QrYA';
 
-        const defaultTeamA = [
-            { name: "Arun", admin: true },
-            { name: "Nishant Sir" }, { name: "Suchit Sir" }, { name: "Sudarshan" },
-            { name: "Messi 10" }, { name: "Surendra" }, { name: "Dinesh Sir" }
-        ];
-        const defaultTeamB = [
-            { name: "Bishnu Sir" }, { name: "Bishal" }, { name: "Dinesh" },
-            { name: "Abhishek" }, { name: "Roshan" }, { name: "Suman Sir" },
-            { name: "Bijay" }, { name: "SP DADA" }
-        ];
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        let currentUser = null;
-
-        // --- ROSTER MANAGEMENT ---
-        function getRoster() {
-            try {
-                const r = localStorage.getItem('futsal_roster');
-                if (r) return JSON.parse(r);
-            } catch(e) {}
-            return {
-                teamA: JSON.parse(JSON.stringify(defaultTeamA)),
-                teamB: JSON.parse(JSON.stringify(defaultTeamB))
-            };
-        }
-
-        function saveRoster(roster) {
-            localStorage.setItem('futsal_roster', JSON.stringify(roster));
-        }
-
-        function getAllPlayers() {
-            const r = getRoster();
-            return [...r.teamA, ...r.teamB];
-        }
-
-        function findPlayer(name) {
-            return getAllPlayers().find(p => p.name === name);
-        }
-
-        function isTeamA(name) {
-            return getRoster().teamA.some(p => p.name === name);
-        }
+        // --- STATE (in-memory cache, kept in sync via fetch + realtime) ---
+        let roster = { teamA: [], teamB: [] };      // [{name, team, is_admin}]
+        let attendanceData = {};                     // { name: 'yes'|'no'|'pending' }
+        let currentUser = null;                       // { token, name, team, is_admin }
 
         // --- INIT ---
-        document.addEventListener('DOMContentLoaded', () => {
-            loadSettings();
-            checkSession();
+        document.addEventListener('DOMContentLoaded', async () => {
             setupListeners();
+            restoreSession();
+            await Promise.all([fetchRoster(), fetchAttendance(), fetchSettings()]);
             renderAll();
+            setupRealtime();
         });
 
         function setupListeners() {
@@ -677,17 +677,112 @@
             document.getElementById('logoutBtn').addEventListener('click', doLogout);
         }
 
-        // --- SETTINGS ---
-        function loadSettings() {
-            const v = localStorage.getItem('futsal_venue') || 'Khelkunja Arena';
-            const t = localStorage.getItem('futsal_time') || 'This Saturday @ 9:00 AM';
-            document.getElementById('displayVenue').textContent = v;
-            document.getElementById('displayTime').textContent = '📅 ' + t;
+        // --- SESSION ---
+        function restoreSession() {
+            try {
+                const saved = sessionStorage.getItem('futsal_user');
+                if (saved) currentUser = JSON.parse(saved);
+            } catch (e) { currentUser = null; }
         }
 
+        function saveSession() {
+            if (currentUser) sessionStorage.setItem('futsal_user', JSON.stringify(currentUser));
+            else sessionStorage.removeItem('futsal_user');
+        }
+
+        // --- REALTIME ---
+        function setupRealtime() {
+            const setBadge = (state) => {
+                const el = document.getElementById('connBadge');
+                el.className = 'conn-badge ' + state;
+                el.textContent = state === 'live' ? '● live' : (state === 'down' ? '● offline' : '● connecting');
+            };
+
+            supabase
+                .channel('public:attendance')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload) => {
+                    const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+                    if (!row) return;
+                    if (payload.eventType === 'DELETE') delete attendanceData[row.player_name];
+                    else attendanceData[row.player_name] = row.status;
+                    renderLists();
+                    renderStats();
+                    renderMyAttendanceButtons();
+                    flashPlayer(row.player_name);
+                })
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') setBadge('live');
+                    else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setBadge('down');
+                });
+
+            supabase
+                .channel('public:roster_public')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'roster_public' }, async () => {
+                    await fetchRoster();
+                    renderAll();
+                })
+                .subscribe();
+
+            supabase
+                .channel('public:settings')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, (payload) => {
+                    applySettings(payload.new);
+                })
+                .subscribe();
+        }
+
+        function flashPlayer(name) {
+            const rows = document.querySelectorAll('.player-item');
+            for (const row of rows) {
+                if (row.dataset.name === name) {
+                    row.classList.add('updated');
+                    setTimeout(() => row.classList.remove('updated'), 600);
+                    break;
+                }
+            }
+        }
+
+        // --- DATA FETCH ---
+        async function fetchRoster() {
+            const { data, error } = await supabase
+                .from('roster_public')
+                .select('name, team, is_admin')
+                .order('created_at', { ascending: true });
+            if (error) { console.error(error); return; }
+            roster = {
+                teamA: data.filter(p => p.team === 'A'),
+                teamB: data.filter(p => p.team === 'B')
+            };
+        }
+
+        async function fetchAttendance() {
+            const { data, error } = await supabase.from('attendance').select('player_name, status');
+            if (error) { console.error(error); return; }
+            attendanceData = {};
+            data.forEach(row => { attendanceData[row.player_name] = row.status; });
+        }
+
+        async function fetchSettings() {
+            const { data, error } = await supabase.from('settings').select('venue, event_time').eq('id', 1).single();
+            if (error) { console.error(error); return; }
+            applySettings(data);
+        }
+
+        function applySettings(s) {
+            if (!s) return;
+            document.getElementById('displayVenue').textContent = s.venue;
+            document.getElementById('displayTime').textContent = '📅 ' + s.event_time;
+        }
+
+        // --- HELPERS ---
+        function getAllPlayers() { return [...roster.teamA, ...roster.teamB]; }
+        function isTeamA(name) { return roster.teamA.some(p => p.name === name); }
+
         function openEditModal() {
-            document.getElementById('editVenue').value = localStorage.getItem('futsal_venue') || 'Khelkunja Arena';
-            document.getElementById('editTime').value = localStorage.getItem('futsal_time') || 'This Saturday @ 9:00 AM';
+            const venueEl = document.getElementById('displayVenue');
+            const timeEl = document.getElementById('displayTime');
+            document.getElementById('editVenue').value = venueEl.textContent.trim();
+            document.getElementById('editTime').value = timeEl.textContent.replace('📅', '').trim();
             document.getElementById('editModal').style.display = 'flex';
         }
 
@@ -695,12 +790,14 @@
             document.getElementById('editModal').style.display = 'none';
         }
 
-        function saveSettings() {
+        async function saveSettings() {
+            if (!currentUser) return;
             const v = document.getElementById('editVenue').value.trim();
             const t = document.getElementById('editTime').value.trim();
-            if (v) localStorage.setItem('futsal_venue', v);
-            if (t) localStorage.setItem('futsal_time', t);
-            loadSettings();
+            const { error } = await supabase.rpc('rpc_update_settings', {
+                p_token: currentUser.token, p_venue: v, p_time: t
+            });
+            if (error) return alert(error.message);
             closeEditModal();
         }
 
@@ -712,56 +809,46 @@
         }
 
         // --- PLAYER MANAGEMENT (ADMIN) ---
-        function addPlayer() {
+        async function addPlayer() {
             const nameInput = document.getElementById('newPlayerName');
             const teamSelect = document.getElementById('newPlayerTeam');
             const name = nameInput.value.trim();
+            if (!name) return alert('Enter a player name');
+            if (!currentUser) return;
 
-            if (!name) return alert("Enter a player name");
+            const { error } = await supabase.rpc('rpc_add_player', {
+                p_token: currentUser.token, p_name: name, p_team: teamSelect.value
+            });
+            if (error) return alert(error.message);
 
-            const roster = getRoster();
-            const allNames = [...roster.teamA, ...roster.teamB].map(p => p.name);
-            if (allNames.includes(name)) return alert("Player already exists");
-
-            const team = teamSelect.value;
-            const newPlayer = { name: name };
-            if (name === ADMIN_NAME) newPlayer.admin = true;
-
-            if (team === 'A') roster.teamA.push(newPlayer);
-            else roster.teamB.push(newPlayer);
-
-            saveRoster(roster);
             nameInput.value = '';
+            await fetchRoster();
             renderAll();
             renderManageList();
         }
 
-        function removePlayer(name) {
-            if (name === ADMIN_NAME) return alert("Cannot remove admin");
-            if (!confirm("Remove " + name + "?")) return;
+        async function removePlayer(name) {
+            if (!confirm('Remove ' + name + '?')) return;
+            if (!currentUser) return;
 
-            const roster = getRoster();
-            roster.teamA = roster.teamA.filter(p => p.name !== name);
-            roster.teamB = roster.teamB.filter(p => p.name !== name);
-            saveRoster(roster);
+            const { error } = await supabase.rpc('rpc_remove_player', {
+                p_token: currentUser.token, p_name: name
+            });
+            if (error) return alert(error.message);
 
-            const data = getData();
-            delete data[name];
-            saveData(data);
-
+            await Promise.all([fetchRoster(), fetchAttendance()]);
             renderAll();
             renderManageList();
         }
 
         function renderManageList() {
-            const roster = getRoster();
             const container = document.getElementById('manageList');
             let html = '';
 
             const renderTeam = (team, label) => {
                 html += `<div style="font-size:0.8em; color:#888; margin-top:8px; margin-bottom:4px;">${label}</div>`;
                 team.forEach(p => {
-                    const isAdmin = p.admin === true;
+                    const isAdmin = p.is_admin === true;
                     html += `<div class="player-manage-item">
                         <span>${p.name}${isAdmin ? ' 👑' : ''}</span>
                         ${isAdmin ? '<span style="font-size:0.8em; color:#888;">Admin</span>' :
@@ -777,46 +864,43 @@
         }
 
         // --- AUTH ---
-        function getPass(name) {
-            if (name === ADMIN_NAME) return ADMIN_PASS;
-            return name.toLowerCase().replace(/\s/g, '');
-        }
-
-        function doLogin() {
+        async function doLogin() {
             const name = document.getElementById('playerSelect').value;
             const pass = document.getElementById('passwordInput').value.trim();
             const msg = document.getElementById('loginMsg');
+            const btn = document.getElementById('loginBtn');
 
             if (!name) return showMsg(msg, 'Please select your name', 'error');
             if (!pass) return showMsg(msg, 'Please enter password', 'error');
 
-            const player = findPlayer(name);
-            if (!player) return showMsg(msg, 'Player not found', 'error');
+            btn.disabled = true;
+            const { data, error } = await supabase.rpc('rpc_login', { p_name: name, p_password: pass });
+            btn.disabled = false;
 
-            if (pass !== getPass(name)) return showMsg(msg, 'Incorrect password', 'error');
+            if (error || !data || !data.length) {
+                return showMsg(msg, 'Incorrect name or password', 'error');
+            }
 
-            currentUser = player;
-            sessionStorage.setItem('futsal_user', JSON.stringify(player));
+            const row = data[0];
+            currentUser = { token: row.token, name: row.name, team: row.team, is_admin: row.is_admin };
+            saveSession();
+
             document.getElementById('passwordInput').value = '';
-            showMsg(msg, 'Welcome, ' + name + '!', 'success');
+            showMsg(msg, 'Welcome, ' + row.name + '!', 'success');
             msg.style.display = 'none';
 
             renderAll();
         }
 
-        function doLogout() {
+        async function doLogout() {
+            if (currentUser) {
+                await supabase.rpc('rpc_logout', { p_token: currentUser.token }).catch(() => {});
+            }
             currentUser = null;
-            sessionStorage.removeItem('futsal_user');
+            saveSession();
             document.getElementById('adminPanel').classList.remove('active');
             document.getElementById('adminToggle').classList.add('hidden');
             renderAll();
-        }
-
-        function checkSession() {
-            const saved = sessionStorage.getItem('futsal_user');
-            if (saved) {
-                currentUser = JSON.parse(saved);
-            }
         }
 
         function showMsg(el, text, type) {
@@ -825,60 +909,37 @@
         }
 
         // --- ATTENDANCE ---
-        function getData() {
-            try { return JSON.parse(localStorage.getItem('futsal_data')) || {}; }
-            catch (e) { return {}; }
-        }
-
-        function saveData(data) {
-            localStorage.setItem('futsal_data', JSON.stringify(data));
-        }
-
-        function setAttendance(status) {
+        async function setAttendance(status) {
             if (!currentUser) return;
 
-            updateStatusInList(currentUser.name, status);
-
-            const data = getData();
-            data[currentUser.name] = status;
-            saveData(data);
-
+            // optimistic update
+            attendanceData[currentUser.name] = status;
             document.getElementById('btnYes').classList.toggle('active', status === 'yes');
             document.getElementById('btnNo').classList.toggle('active', status === 'no');
+            renderLists();
             renderStats();
-        }
 
-        function updateStatusInList(name, status) {
-            const badgeMap = {
-                'yes': '<span class="status-badge st-yes">Playing</span>',
-                'no': '<span class="status-badge st-no">Absent</span>',
-                'pending': '<span class="status-badge st-pending">Pending</span>'
-            };
+            const { error } = await supabase.rpc('rpc_set_attendance', {
+                p_token: currentUser.token, p_status: status
+            });
 
-            const statusHtml = badgeMap[status] || badgeMap['pending'];
-
-            const rows = document.querySelectorAll('.player-item');
-            for (const row of rows) {
-                if (row.textContent.includes(name)) {
-                    const nameSpan = row.querySelector('span:first-child');
-                    if (nameSpan) {
-                        const hasCrown = nameSpan.textContent.includes('👑');
-                        const cleanName = hasCrown ? nameSpan.textContent.replace(' 👑', '') : nameSpan.textContent.trim();
-                        row.innerHTML = `<span>${cleanName}${hasCrown ? ' 👑' : ''}</span>${statusHtml}`;
-                        row.classList.add('updated');
-                        setTimeout(() => row.classList.remove('updated'), 500);
-                    }
-                    break;
+            if (error) {
+                if (error.message && error.message.includes('Session expired')) {
+                    alert('Your session expired, please log in again.');
+                    return doLogout();
                 }
+                alert(error.message);
             }
         }
 
-        function resetData() {
-            if (confirm("Are you sure? This will clear ALL attendance data.")) {
-                localStorage.removeItem('futsal_data');
-                renderAll();
-                document.getElementById('adminPanel').classList.remove('active');
-            }
+        async function resetData() {
+            if (!currentUser) return;
+            if (!confirm('Are you sure? This will clear ALL attendance data.')) return;
+
+            const { error } = await supabase.rpc('rpc_reset_attendance', { p_token: currentUser.token });
+            if (error) return alert(error.message);
+
+            document.getElementById('adminPanel').classList.remove('active');
         }
 
         // --- RENDER ---
@@ -890,7 +951,6 @@
         }
 
         function renderLoginDropdown() {
-            const roster = getRoster();
             const optA = document.getElementById('optTeamA');
             const optB = document.getElementById('optTeamB');
 
@@ -900,7 +960,7 @@
             roster.teamA.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = p.name;
-                opt.textContent = p.name + (p.admin ? ' 👑' : '');
+                opt.textContent = p.name + (p.is_admin ? ' 👑' : '');
                 optA.appendChild(opt);
             });
             roster.teamB.forEach(p => {
@@ -911,8 +971,14 @@
             });
         }
 
+        function renderMyAttendanceButtons() {
+            if (!currentUser) return;
+            const status = attendanceData[currentUser.name];
+            document.getElementById('btnYes').classList.toggle('active', status === 'yes');
+            document.getElementById('btnNo').classList.toggle('active', status === 'no');
+        }
+
         function renderDashboard() {
-            const data = getData();
             const loginSec = document.getElementById('loginSection');
             const userPan = document.getElementById('userPanel');
             const adminToggle = document.getElementById('adminToggle');
@@ -929,13 +995,10 @@
                 tBadge.textContent = isA ? '🔴 Team A' : '🔵 Team B';
                 tBadge.className = 'badge ' + (isA ? 'team-a-badge' : 'team-b-badge');
 
-                const isAdmin = currentUser.name === ADMIN_NAME;
-                document.getElementById('adminBadge').classList.toggle('hidden', !isAdmin);
-                adminToggle.classList.toggle('hidden', !isAdmin);
+                document.getElementById('adminBadge').classList.toggle('hidden', !currentUser.is_admin);
+                adminToggle.classList.toggle('hidden', !currentUser.is_admin);
 
-                const status = data[currentUser.name];
-                document.getElementById('btnYes').classList.toggle('active', status === 'yes');
-                document.getElementById('btnNo').classList.toggle('active', status === 'no');
+                renderMyAttendanceButtons();
 
             } else {
                 loginSec.style.display = 'block';
@@ -946,25 +1009,23 @@
         }
 
         function renderLists() {
-            const roster = getRoster();
-            const data = getData();
-            renderList('listA', roster.teamA, data);
-            renderList('listB', roster.teamB, data);
+            renderList('listA', roster.teamA);
+            renderList('listB', roster.teamB);
         }
 
-        function renderList(id, team, data) {
+        function renderList(id, team) {
             const container = document.getElementById(id);
             let html = '';
             team.forEach(p => {
-                const s = data[p.name];
+                const s = attendanceData[p.name];
                 let badge = '<span class="status-badge st-pending">Pending</span>';
                 if (s === 'yes') badge = '<span class="status-badge st-yes">Playing</span>';
                 if (s === 'no') badge = '<span class="status-badge st-no">Absent</span>';
                 if (currentUser && currentUser.name === p.name) {
                     badge = '<span class="status-badge st-you">You</span>';
                 }
-                const crown = p.admin ? ' 👑' : '';
-                html += `<div class="player-item">
+                const crown = p.is_admin ? ' 👑' : '';
+                html += `<div class="player-item" data-name="${p.name}">
                             <span>${p.name}${crown}</span>
                             ${badge}
                          </div>`;
@@ -973,11 +1034,10 @@
         }
 
         function renderStats() {
-            const data = getData();
             const all = getAllPlayers();
             let y = 0, n = 0, p = 0;
             all.forEach(pl => {
-                const s = data[pl.name];
+                const s = attendanceData[pl.name];
                 if (s === 'yes') y++;
                 else if (s === 'no') n++;
                 else p++;

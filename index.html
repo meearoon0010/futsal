@@ -6,9 +6,6 @@
 <title>Team Sheet — Futsal Saturday</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="config.js"></script>
 <style>
   :root{
     --pitch: #0F3D2E;
@@ -213,6 +210,7 @@
 </style>
 </head>
 <body>
+<div id="fatalError" style="display:none; max-width:460px; margin:0 auto 16px; background:#5C1A1A; color:#FFD7D7; padding:14px 16px; border-radius:4px; font-family:'Inter',sans-serif; font-size:13px; line-height:1.5;"></div>
 <div class="wrap">
 
   <div class="kickoff">
@@ -301,9 +299,31 @@
   <div class="footer-note">Khelkunja Arena · Saturday futsal · Team Sheet</div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="showFatal('Could not load the Supabase library (cdn.jsdelivr.net). This network/browser may be blocking it — try a different network, disable any ad-blocker, or try another browser.')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="showFatal('Could not load the PDF library (cdnjs.cloudflare.com). Sign-in will still work, but PDF download will not until this loads.')"></script>
+<script src="config.js" onerror="showFatal('config.js did not load. Make sure config.js is uploaded to the same folder as index.html in your GitHub repo.')"></script>
 <script>
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function showFatal(msg){
+  const el = document.getElementById('fatalError');
+  el.style.display = 'block';
+  el.textContent = msg;
+}
+
+let supabase = null;
 let currentUser = null; // {id, name, team, username, is_admin}
+
+try{
+  if(typeof window.supabase === 'undefined'){
+    throw new Error('Supabase library not loaded');
+  }
+  if(typeof SUPABASE_URL === 'undefined' || SUPABASE_URL.includes('YOUR-PROJECT-ID')){
+    showFatal('config.js is missing your real Supabase URL/key. Open config.js and paste in your Project URL and anon key from Supabase → Project Settings → API.');
+  } else {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}catch(e){
+  showFatal('The app could not start: ' + e.message + '. Check your internet connection and try reloading the page.');
+}
 
 // ---------- LOGIN ----------
 async function handleLogin(){
@@ -312,20 +332,39 @@ async function handleLogin(){
   const errEl = document.getElementById('loginError');
   errEl.style.display = 'none';
 
+  if(!supabase){
+    errEl.textContent = 'App did not start correctly — see the red message above.';
+    errEl.style.display = 'block';
+    return;
+  }
+
   if(!username || !password){
     errEl.textContent = 'Enter your username and password.';
     errEl.style.display = 'block';
     return;
   }
 
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-    .eq('username', username)
-    .eq('password', password)
-    .maybeSingle();
+  let data, error;
+  try{
+    ({ data, error } = await supabase
+      .from('players')
+      .select('*')
+      .eq('username', username)
+      .eq('password', password)
+      .maybeSingle());
+  }catch(e){
+    errEl.textContent = 'Could not reach the database: ' + e.message;
+    errEl.style.display = 'block';
+    return;
+  }
 
-  if(error || !data){
+  if(error){
+    errEl.textContent = 'Database error: ' + error.message + (error.message.includes('does not exist') ? ' — schema.sql may not have been run yet in Supabase.' : '');
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if(!data){
     errEl.textContent = 'Username or password is incorrect.';
     errEl.style.display = 'block';
     return;

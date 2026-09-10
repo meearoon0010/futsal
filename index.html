@@ -1,582 +1,477 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Futsal Attendance App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/index.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Team Sheet — Futsal Saturday</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pitch: #0F3D2E; --pitch-deep: #0A2E22; --panel: #16473A;
+    --chalk: #F5F2EA; --ink: #12261D; --line: rgba(245,242,234,0.35);
+    --ball: #E8590C; --ball-deep: #C24A08; --no: #6B7280;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background: radial-gradient(circle at 50% 0%, var(--panel) 0%, var(--pitch) 55%, var(--pitch-deep) 100%);
+    font-family:'Inter', sans-serif; color: var(--chalk);
+    display:flex; justify-content:center; padding: 28px 16px 60px;
+  }
+  .wrap{ width:100%; max-width:460px; }
+  h1,h2,h3{ font-family:'Oswald', sans-serif; letter-spacing:0.3px; margin:0; }
+  .kickoff{ text-align:center; margin-bottom: 22px; }
+  .kickoff .tag{ font-size:13px; color: var(--chalk); opacity:0.65; }
+  .kickoff h1{ font-size: 30px; font-weight:700; margin-top:4px; }
+  .dashline{ border:none; border-top: 2px dashed var(--line); margin: 18px 0; }
+  .panel{ background: var(--panel); border-radius: 4px; padding: 22px 20px; border: 1px solid rgba(245,242,234,0.12); }
+  label{ font-size:13px; display:block; margin-bottom:6px; opacity:0.85; }
+  input[type=text], input[type=password]{
+    width:100%; padding:11px 12px; border-radius:3px;
+    border:1px solid rgba(245,242,234,0.25); background: rgba(245,242,234,0.06);
+    color: var(--chalk); font-size:15px; font-family:'Inter',sans-serif; margin-bottom:14px;
+  }
+  input::placeholder{ color: rgba(245,242,234,0.4); }
+  button{ font-family:'Oswald', sans-serif; font-weight:600; letter-spacing:0.4px; cursor:pointer; border:none; border-radius: 3px; }
+  .btn-primary{ width:100%; background: var(--ball); color: var(--chalk); padding:12px; font-size:15px; }
+  .btn-primary:hover{ background: var(--ball-deep); }
+  .btn-ghost{ background:transparent; border:1px solid rgba(245,242,234,0.3); color:var(--chalk); padding:9px 14px; font-size:13px; }
+  .error{ color:#FFD7B0; font-size:13px; margin:-6px 0 12px; font-weight:600; }
+  .matchcard{ text-align:center; padding: 18px 10px 22px; }
+  .matchcard .venue{ font-size:22px; font-weight:700; }
+  .matchcard .when{ font-size:14px; opacity:0.8; margin-top:6px; }
+  .player-name{ text-align:center; font-size:26px; font-weight:700; margin: 6px 0 2px; }
+  .player-team{ text-align:center; font-size:12px; opacity:0.6; text-transform:uppercase; letter-spacing:1.5px; margin-bottom: 18px; }
+  .toggle-row{ display:flex; gap:12px; justify-content:center; margin: 16px 0 6px; }
+  .tick-btn{
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 2px solid rgba(245,242,234,0.3); background: rgba(245,242,234,0.05); color: var(--chalk);
+    font-family:'Oswald',sans-serif; font-size:18px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; transition: all .15s ease;
+  }
+  .tick-btn.yes.active{ background: var(--ball); border-color: var(--ball); box-shadow: 0 0 0 6px rgba(232,89,12,0.18); }
+  .tick-btn.no.active{ background: var(--no); border-color: var(--no); box-shadow: 0 0 0 6px rgba(107,114,128,0.18); }
+  .status-line{ text-align:center; font-size:13px; opacity:0.7; margin-top:14px; }
+  .topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .topbar .who{ font-size:13px; opacity:0.7; }
+  .section-title{ font-size:13px; text-transform:uppercase; letter-spacing:1.5px; opacity:0.6; margin-bottom:10px; }
+  .roster-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom: 1px dashed var(--line); font-size:14px; }
+  .roster-row:last-child{ border-bottom:none; }
+  .pill{ font-size:11px; padding:3px 9px; border-radius:20px; font-family:'Inter',sans-serif; font-weight:600; }
+  .pill.yes{ background: rgba(232,89,12,0.2); color:#FFB68A; }
+  .pill.no{ background: rgba(107,114,128,0.25); color:#D1D5DB; }
+  .pill.pending{ background: rgba(245,242,234,0.1); color: rgba(245,242,234,0.6); }
+  .remove-x{ background:transparent; color: rgba(245,242,234,0.5); border:none; font-size:16px; cursor:pointer; padding: 0 0 0 10px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .small-btn{ padding:9px; font-size:12.5px; }
+  .footer-note{ text-align:center; font-size:11px; opacity:0.45; margin-top:26px; }
+  select{
+    width:100%; padding:10px; border-radius:3px; border:1px solid rgba(245,242,234,0.25);
+    background: rgba(245,242,234,0.06); color: var(--chalk); font-family:'Inter',sans-serif; margin-bottom:12px;
+  }
+  #diagPanel{
+    font-family:'Inter',sans-serif; font-size:12.5px; background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(245,242,234,0.15); border-radius:4px; padding:12px 14px;
+    margin-bottom:18px; line-height:1.7;
+  }
+  #diagPanel .row{ display:flex; justify-content:space-between; gap:8px; }
+  #diagPanel .ok{ color:#8CE0A0; }
+  #diagPanel .fail{ color:#FFA98C; font-weight:600; }
+  #diagPanel .pending{ opacity:0.6; }
+  #diagDetail{ margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); opacity:0.9; white-space:pre-wrap; }
+</style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold text-center mb-8 text-blue-600">Futsal Attendance App</h1>
-        
-        <div id="auth-container" class="max-w-md mx-auto mb-8 hidden">
-            <button id="sign-in-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                Sign in with Google
-            </button>
-        </div>
-        
-        <div id="main-container" class="hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="user-name" class="text-xl font-semibold"></h2>
-                <button id="sign-out-btn" class="text-sm text-red-600 hover:text-red-800">Sign Out</button>
-            </div>
-            
-            <div id="attendance-section" class="mb-8 p-4 bg-white rounded-lg shadow">
-                <h3 class="text-lg font-medium mb-2">Attendance for Futsal on <span id="current-date"></span></h3>
-                <div class="flex space-x-4">
-                    <button id="yes-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
-                        YES
-                    </button>
-                    <button id="no-btn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
-                        NO
-                    </button>
-                </div>
-                <p id="attendance-status" class="mt-2 text-center"></p>
-            </div>
-            
-            <div id="admin-section" class="hidden">
-                <div class="bg-white p-4 rounded-lg shadow mb-6">
-                    <h3 class="text-lg font-medium mb-3">Admin Controls</h3>
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="venue">
-                            Venue
-                        </label>
-                        <div class="flex">
-                            <input id="venue" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text">
-                            <button id="update-venue-btn" class="ml-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm">
-                                Update
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2" for="time">
-                            Time
-                        </label>
-                        <div class="flex">
-                            <input id="time" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text">
-                            <button id="update-time-btn" class="ml-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded text-sm">
-                                Update
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2">
-                            Manage Players
-                        </label>
-                        <div class="flex mb-2">
-                            <input id="new-player" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" placeholder="Player name">
-                            <select id="team-select" class="ml-2 shadow border rounded py-2 px-3 text-gray-700 focus:outline-none focus:shadow-outline">
-                                <option value="A">Team A</option>
-                                <option value="B">Team B</option>
-                            </select>
-                            <button id="add-player-btn" class="ml-2 bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded text-sm">
-                                Add
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <button id="generate-pdf-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded">
-                        Generate PDF of YES responses
-                    </button>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div id="yes-players" class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-medium mb-2">Players Coming (YES)</h3>
-                    <ul id="yes-list" class="list-disc pl-5"></ul>
-                </div>
-                
-                <div id="no-players" class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-medium mb-2">Players Not Coming (NO)</h3>
-                    <ul id="no-list" class="list-disc pl-5"></ul>
-                </div>
-            </div>
-        </div>
+<body>
+<div class="wrap">
+
+  <div class="kickoff">
+    <div class="tag">TEAM SHEET</div>
+    <h1>Futsal Matchday</h1>
+  </div>
+
+  <div id="diagPanel">
+    <div class="row"><span>1. Page libraries</span><span id="diagLib" class="pending">checking…</span></div>
+    <div class="row"><span>2. Project config</span><span id="diagCfg" class="pending">checking…</span></div>
+    <div class="row"><span>3. Database connection</span><span id="diagDb" class="pending">checking…</span></div>
+    <div id="diagDetail" style="display:none;"></div>
+  </div>
+
+  <div id="loginView" class="panel">
+    <div class="section-title" style="text-align:center;margin-bottom:16px;">Sign in</div>
+    <label for="loginUser">Username</label>
+    <input type="text" id="loginUser" placeholder="your username, or the admin email" autocomplete="off">
+    <label for="loginPass">Password</label>
+    <input type="password" id="loginPass" placeholder="••••••">
+    <div class="error" id="loginError" style="display:none;"></div>
+    <button class="btn-primary" onclick="handleLogin()">Sign in</button>
+  </div>
+
+  <div id="playerView" style="display:none;">
+    <div class="topbar">
+      <div class="who">Signed in as <span id="pWho"></span></div>
+      <button class="btn-ghost" onclick="logout()">Sign out</button>
+    </div>
+    <div class="panel matchcard">
+      <div class="tag" style="opacity:.6;">THIS WEEK'S MATCH</div>
+      <div class="venue" id="pVenue">Khelkunja Arena</div>
+      <div class="when" id="pWhen">Saturday · 9:00 AM</div>
+    </div>
+    <hr class="dashline">
+    <div class="player-name" id="pName">—</div>
+    <div class="player-team" id="pTeam">—</div>
+    <div style="text-align:center;font-size:13px;opacity:.75;margin-bottom:6px;">Can you play this Saturday?</div>
+    <div class="toggle-row">
+      <button class="tick-btn yes" id="btnYes" onclick="setAttendance('yes')">YES</button>
+      <button class="tick-btn no" id="btnNo" onclick="setAttendance('no')">NO</button>
+    </div>
+    <div class="status-line" id="pStatus">Not answered yet</div>
+  </div>
+
+  <div id="adminView" style="display:none;">
+    <div class="topbar">
+      <div class="who">Admin panel</div>
+      <button class="btn-ghost" onclick="logout()">Sign out</button>
     </div>
 
-    <script>
-        // Initialize Supabase
-        const supabaseUrl = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaWt5ZnNxb3lsZmd3c3ZlZ3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NzMzNTgsImV4cCI6MjEwNDU0OTM1OH0.Y8ChN4jNtD4Vat20xZ6AKNTRqz4rbh55pv3gps_QrYA';
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-        
-        // DOM elements
-        const authContainer = document.getElementById('auth-container');
-        const mainContainer = document.getElementById('main-container');
-        const userNameElement = document.getElementById('user-name');
-        const signInBtn = document.getElementById('sign-in-btn');
-        const signOutBtn = document.getElementById('sign-out-btn');
-        const yesBtn = document.getElementById('yes-btn');
-        const noBtn = document.getElementById('no-btn');
-        const attendanceStatus = document.getElementById('attendance-status');
-        const currentDate = document.getElementById('current-date');
-        const venueInput = document.getElementById('venue');
-        const timeInput = document.getElementById('time');
-        const updateVenueBtn = document.getElementById('update-venue-btn');
-        const updateTimeBtn = document.getElementById('update-time-btn');
-        const newPlayerInput = document.getElementById('new-player');
-        const teamSelect = document.getElementById('team-select');
-        const addPlayerBtn = document.getElementById('add-player-btn');
-        const generatePdfBtn = document.getElementById('generate-pdf-btn');
-        const adminSection = document.getElementById('admin-section');
-        const yesList = document.getElementById('yes-list');
-        const noList = document.getElementById('no-list');
-        
-        // Get today's date in YYYY-MM-DD format
-        function getTodayDate() {
-            const today = new Date();
-            return today.toISOString().split('T')[0];
-        }
-        
-        // Format date for display
-        function formatDate(dateString) {
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            return new Date(dateString).toLocaleDateString(undefined, options);
-        }
-        
-        // Initialize the app
-        async function initializeApp() {
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            if (user) {
-                authContainer.classList.add('hidden');
-                mainContainer.classList.remove('hidden');
-                userNameElement.textContent = `Welcome, ${user.user_metadata.name}`;
-                
-                // Check if user is admin
-                if (user.email === "whitewalkerofnorth@gmail.com") {
-                    adminSection.classList.remove('hidden');
-                    loadAdminData();
-                }
-                
-                loadAttendanceStatus();
-                loadVenueAndTime();
-                loadPlayers();
-            } else {
-                authContainer.classList.remove('hidden');
-                mainContainer.classList.add('hidden');
-            }
-        }
-        
-        // Load admin data
-        async function loadAdminData() {
-            // Venue and time are stored in a separate table
-            const { data, error } = await supabase
-                .from('settings')
-                .select('*')
-                .single();
-                
-            if (error) {
-                console.error('Error loading settings:', error);
-                return;
-            }
-            
-            venueInput.value = data.venue;
-            timeInput.value = data.time;
-        }
-        
-        // Load user attendance status
-        async function loadAttendanceStatus() {
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            const { data, error } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('date', getTodayDate())
-                .single();
-                
-            if (error) {
-                attendanceStatus.textContent = "Have you confirmed your attendance?";
-                attendanceStatus.className = "mt-2 text-center text-gray-600";
-                return;
-            }
-            
-            attendanceStatus.textContent = `You have confirmed: ${data.response.toUpperCase()}`;
-            attendanceStatus.className = `mt-2 text-center ${data.response === 'yes' ? 'text-green-600' : 'text-red-600'}`;
-        }
-        
-        // Load venue and time
-        async function loadVenueAndTime() {
-            const { data, error } = await supabase
-                .from('settings')
-                .select('*')
-                .single();
-                
-            if (error) {
-                currentDate.innerHTML = formatDate(getTodayDate());
-                return;
-            }
-            
-            currentDate.innerHTML = `${formatDate(getTodayDate())} | ${data.venue} | ${data.time}`;
-        }
-        
-        // Load players
-        async function loadPlayers() {
-            const { data, error } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('date', getTodayDate());
-                
-            if (error) {
-                console.error('Error loading players:', error);
-                return;
-            }
-            
-            yesList.innerHTML = '';
-            noList.innerHTML = '';
-            
-            data.forEach(record => {
-                const { name, response, team } = record;
-                
-                const li = document.createElement('li');
-                li.className = 'py-1';
-                
-                const teamSpan = document.createElement('span');
-                teamSpan.className = `inline-block w-4 h-4 rounded-full mr-2 ${
-                    team === 'A' ? 'bg-blue-500' : 'bg-red-500'
-                }`;
-                
-                li.textContent = name;
-                li.prepend(teamSpan);
-                
-                if (response === 'yes') {
-                    yesList.appendChild(li);
-                } else {
-                    noList.appendChild(li);
-                }
-            });
-        }
-        
-        // Handle sign in with Google
-        signInBtn.addEventListener('click', async () => {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-            });
-            
-            if (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'Something went wrong signing in!'
-                });
-            }
-        });
-        
-        // Handle sign out
-        signOutBtn.addEventListener('click', async () => {
-            const { error } = await supabase.auth.signOut();
-            
-            if (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'Something went wrong signing out!'
-                });
-            } else {
-                initializeApp();
-            }
-        });
-        
-        // Handle YES response
-        yesBtn.addEventListener('click', async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            if (!user) return;
-            
-            const today = getTodayDate();
-            
-            // Check if record exists
-            const { data, error: checkError } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('date', today)
-                .single();
-                
-            if (!checkError) {
-                // Update existing record
-                const { error } = await supabase
-                    .from('attendance')
-                    .update({ response: 'yes' })
-                    .eq('id', data.id);
-                    
-                if (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Something went wrong updating your attendance!'
-                    });
-                }
-            } else {
-                // Create new record
-                const { error } = await supabase
-                    .from('attendance')
-                    .insert({
-                        user_id: user.id,
-                        name: user.user_metadata.name,
-                        response: 'yes',
-                        team: 'A', // Default team
-                        date: today
-                    });
-                    
-                if (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Something went wrong recording your attendance!'
-                    });
-                }
-            }
-            
-            loadAttendanceStatus();
-            loadPlayers();
-        });
-        
-        // Handle NO response
-        noBtn.addEventListener('click', async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            if (!user) return;
-            
-            const today = getTodayDate();
-            
-            // Check if record exists
-            const { data, error: checkError } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('date', today)
-                .single();
-                
-            if (!checkError) {
-                // Update existing record
-                const { error } = await supabase
-                    .from('attendance')
-                    .update({ response: 'no' })
-                    .eq('id', data.id);
-                    
-                if (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Something went wrong updating your attendance!'
-                    });
-                }
-            } else {
-                // Create new record
-                const { error } = await supabase
-                    .from('attendance')
-                    .insert({
-                        user_id: user.id,
-                        name: user.user_metadata.name,
-                        response: 'no',
-                        team: 'A', // Default team
-                        date: today
-                    });
-                    
-                if (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Something went wrong recording your attendance!'
-                    });
-                }
-            }
-            
-            loadAttendanceStatus();
-            loadPlayers();
-        });
-        
-        // Handle venue update
-        updateVenueBtn.addEventListener('click', async () => {
-            const newVenue = venueInput.value;
-            
-            const { error } = await supabase
-                .from('settings')
-                .update({ venue: newVenue })
-                .eq('id', 1);
-                
-            if (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'Something went wrong updating the venue!'
-                });
-            } else {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Venue Updated!',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-                loadVenueAndTime();
-            }
-        });
-        
-        // Handle time update
-        updateTimeBtn.addEventListener('click', async () => {
-            const newTime = timeInput.value;
-            
-            const { error } = await supabase
-                .from('settings')
-                .update({ time: newTime })
-                .eq('id', 1);
-                
-            if (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'Something went wrong updating the time!'
-                });
-            } else {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Time Updated!',
-                    showConfirmButton: false,
-                    timer: 1500
-                });
-                loadVenueAndTime();
-            }
-        });
-        
-        // Handle adding a new player
-        addPlayerBtn.addEventListener('click', async () => {
-            const playerName = newPlayerInput.value.trim();
-            const team = teamSelect.value;
-            
-            if (!playerName) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Empty Name',
-                    text: 'Please enter a player name!'
-                });
-                return;
-            }
-            
-            const today = getTodayDate();
-            
-            // Check if this player already exists for today
-            const { data, error: checkError } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('name', playerName)
-                .eq('date', today)
-                .single();
-                
-            if (!checkError) {
-                // Player already exists, update their team
-                const { error } = await supabase
-                    .from('attendance')
-                    .update({ team })
-                    .eq('id', data.id);
-                    
-                if (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Something went wrong updating the player team!'
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Player team updated!',
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-                }
-            } else {
-                // Create new player record with YES response
-                const { error } = await supabase
-                    .from('attendance')
-                    .insert({
-                        name: playerName,
-                        response: 'yes',
-                        team,
-                        date: today,
-                        user_id: 'admin_add' // Mark as admin added
-                    });
-                    
-                if (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Something went wrong adding the player!'
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Player added successfully!',
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-                }
-            }
-            
-            newPlayerInput.value = '';
-            loadPlayers();
-        });
-        
-        // Generate PDF of YES responses
-        generatePdfBtn.addEventListener('click', async () => {
-            const { data, error } = await supabase
-                .from('attendance')
-                .select('*')
-                .eq('response', 'yes')
-                .eq('date', getTodayDate());
-                
-            if (error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'Something went wrong retrieving attendance data!'
-                });
-                return;
-            }
-            
-            // Generate PDF
-            const doc = new window.jspdf.jsPDF();
-            const currentDate = new Date().toLocaleDateString();
-            
-            doc.setFontSize(18);
-            doc.text('Futsal Attendance (YES Responses)', 15, 20);
-            doc.setFontSize(12);
-            doc.text(`Date: ${currentDate} | Total: ${data.length}`, 15, 30);
-            doc.text('===================================', 15, 35);
-            
-            let y = 45;
-            data.forEach((record, index) => {
-                doc.text(`${index + 1}. ${record.name} (Team ${record.team})`, 15, y);
-                y += 10;
-                
-                if (y > 270) {  // Start new page if we're near the bottom
-                    doc.addPage();
-                    y = 20;
-                }
-            });
-            
-            doc.save(`futsal_attendance_${currentDate}.pdf`);
-        });
-        
-        // Sign up listener
-        supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN') {
-                initializeApp();
-            } else if (event === 'SIGNED_OUT') {
-                initializeApp();
-            }
-        });
-        
-        // Initialize the app on load
-        initializeApp();
-    </script>
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="section-title">Match settings</div>
+      <label>Venue</label>
+      <input type="text" id="editVenue">
+      <label>Day</label>
+      <input type="text" id="editDay">
+      <label>Time</label>
+      <input type="text" id="editTime">
+      <button class="btn-primary" onclick="saveSettings()">Save match details</button>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="section-title">Attendance — Team A</div>
+      <div id="rosterA"></div>
+      <div class="section-title" style="margin-top:16px;">Attendance — Team B</div>
+      <div id="rosterB"></div>
+      <hr class="dashline">
+      <div class="grid2">
+        <button class="btn-ghost small-btn" onclick="resetAttendance()">Reset all attendance</button>
+        <button class="btn-primary small-btn" onclick="downloadPDF()">Download Yes list (PDF)</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">Add / remove players</div>
+      <label>Name</label>
+      <input type="text" id="newName" placeholder="Player name">
+      <label>Team</label>
+      <select id="newTeam">
+        <option>Team A</option>
+        <option>Team B</option>
+      </select>
+      <button class="btn-primary" onclick="addPlayer()">Add player (auto username/password)</button>
+    </div>
+  </div>
+
+  <div class="footer-note">Khelkunja Arena · Saturday futsal · Team Sheet</div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://lnikyfsqoylfgwsvegsq.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaWt5ZnNxb3lsZmd3c3ZlZ3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NzMzNTgsImV4cCI6MjEwNDU0OTM1OH0.Y8ChN4jNtD4Vat20xZ6AKNTRqz4rbh55pv3gps_QrYA";
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+let supabase = null;
+let currentUser = null;
+
+function setDiag(id, ok, text){
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = ok ? 'ok' : 'fail';
+}
+function showDiagDetail(msg){
+  const d = document.getElementById('diagDetail');
+  d.style.display = 'block';
+  d.textContent = msg;
+}
+
+async function runDiagnostics(){
+  if(typeof window.supabase === 'undefined'){
+    setDiag('diagLib', false, 'failed to load');
+    setDiag('diagCfg', false, 'skipped');
+    setDiag('diagDb', false, 'skipped');
+    showDiagDetail('The Supabase library (cdn.jsdelivr.net) did not load. Usually caused by no internet connection right now, a firewall/ad-blocker blocking jsdelivr.net, or an in-app browser restricting scripts. Try a normal Chrome/Safari/Edge browser.');
+    return;
+  }
+  setDiag('diagLib', true, 'loaded ✓');
+
+  if(!SUPABASE_URL || SUPABASE_URL.includes('YOUR-PROJECT') || !SUPABASE_ANON_KEY){
+    setDiag('diagCfg', false, 'missing values');
+    setDiag('diagDb', false, 'skipped');
+    showDiagDetail('SUPABASE_URL / SUPABASE_ANON_KEY are not filled in.');
+    return;
+  }
+  setDiag('diagCfg', true, 'present ✓');
+
+  try{
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }catch(e){
+    setDiag('diagDb', false, 'client error');
+    showDiagDetail('Could not create the Supabase client: ' + e.message);
+    return;
+  }
+
+  try{
+    const { count, error } = await supabase.from('players').select('*', { count: 'exact', head: true });
+    if(error){
+      setDiag('diagDb', false, 'error');
+      showDiagDetail('Supabase error reading "players":\n\n' + error.message +
+        (error.code ? ('\n\nCode: ' + error.code) : '') +
+        '\n\nMost likely cause: schema.sql has not been run yet (Supabase → SQL Editor → paste schema.sql → Run). If already run, check Table Editor → players has rows, and Authentication → Policies allows anon access.');
+      return;
+    }
+    if(count === 0){
+      setDiag('diagDb', false, 'connected, empty');
+      showDiagDetail('Connected fine, but "players" has 0 rows. Run schema.sql to insert players.');
+      return;
+    }
+    setDiag('diagDb', true, `connected ✓ (${count} rows)`);
+    document.getElementById('diagPanel').style.display = 'none';
+  }catch(e){
+    setDiag('diagDb', false, 'network error');
+    showDiagDetail('Could not reach ' + SUPABASE_URL + '\n\n' + e.message + '\n\nCheck the Project URL is exactly right (no /rest/v1/ at the end) and the project is not paused.');
+  }
+}
+
+async function handleLogin(){
+  const username = document.getElementById('loginUser').value.trim().toLowerCase();
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+
+  if(!supabase){
+    errEl.textContent = 'App is not connected to the database yet — see the panel above for why.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!username || !password){
+    errEl.textContent = 'Enter your username and password.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  let data, error;
+  try{
+    ({ data, error } = await supabase.from('players').select('*')
+      .eq('username', username).eq('password', password).maybeSingle());
+  }catch(e){
+    errEl.textContent = 'Could not reach the database: ' + e.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  if(error){
+    errEl.textContent = 'Database error: ' + error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!data){
+    errEl.textContent = 'Username or password is incorrect.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  currentUser = data;
+  sessionStorage.setItem('teamsheet_user', JSON.stringify(data));
+  showApp();
+}
+
+function logout(){
+  currentUser = null;
+  sessionStorage.removeItem('teamsheet_user');
+  document.getElementById('playerView').style.display = 'none';
+  document.getElementById('adminView').style.display = 'none';
+  document.getElementById('loginView').style.display = 'block';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+}
+
+async function showApp(){
+  document.getElementById('loginView').style.display = 'none';
+  if(currentUser.is_admin){
+    document.getElementById('adminView').style.display = 'block';
+    await loadSettingsIntoForm();
+    await loadRoster();
+  } else {
+    document.getElementById('playerView').style.display = 'block';
+    document.getElementById('pWho').textContent = currentUser.name;
+    document.getElementById('pName').textContent = currentUser.name;
+    document.getElementById('pTeam').textContent = currentUser.team;
+    await loadMatchInfoForPlayer();
+    reflectAttendance(currentUser.attending);
+  }
+}
+
+async function loadMatchInfoForPlayer(){
+  const { data } = await supabase.from('event_settings').select('*').eq('id', 1).maybeSingle();
+  if(data){
+    document.getElementById('pVenue').textContent = data.venue;
+    document.getElementById('pWhen').textContent = `${data.event_day} · ${data.event_time}`;
+  }
+}
+
+function reflectAttendance(val){
+  document.getElementById('btnYes').classList.toggle('active', val === 'yes');
+  document.getElementById('btnNo').classList.toggle('active', val === 'no');
+  const statusEl = document.getElementById('pStatus');
+  if(val === 'yes') statusEl.textContent = "You're marked as playing ✓";
+  else if(val === 'no') statusEl.textContent = "You're marked as not playing";
+  else statusEl.textContent = 'Not answered yet';
+}
+
+async function setAttendance(val){
+  const { error } = await supabase.from('players')
+    .update({ attending: val, updated_at: new Date().toISOString() })
+    .eq('id', currentUser.id);
+  if(!error){
+    currentUser.attending = val;
+    sessionStorage.setItem('teamsheet_user', JSON.stringify(currentUser));
+    reflectAttendance(val);
+  } else {
+    alert('Could not save: ' + error.message);
+  }
+}
+
+async function loadSettingsIntoForm(){
+  const { data } = await supabase.from('event_settings').select('*').eq('id', 1).maybeSingle();
+  if(data){
+    document.getElementById('editVenue').value = data.venue;
+    document.getElementById('editDay').value = data.event_day;
+    document.getElementById('editTime').value = data.event_time;
+  }
+}
+
+async function saveSettings(){
+  const venue = document.getElementById('editVenue').value.trim();
+  const day = document.getElementById('editDay').value.trim();
+  const time = document.getElementById('editTime').value.trim();
+  const { error } = await supabase.from('event_settings').update({
+    venue, event_day: day, event_time: time, updated_at: new Date().toISOString()
+  }).eq('id', 1);
+  alert(error ? ('Could not save: ' + error.message) : 'Match details saved.');
+}
+
+function pillFor(status){
+  if(status === 'yes') return '<span class="pill yes">YES</span>';
+  if(status === 'no') return '<span class="pill no">NO</span>';
+  return '<span class="pill pending">—</span>';
+}
+
+async function loadRoster(){
+  const { data, error } = await supabase.from('players').select('*').order('team').order('name');
+  if(error || !data) return;
+  renderRoster('rosterA', data.filter(p => p.team === 'Team A'));
+  renderRoster('rosterB', data.filter(p => p.team === 'Team B'));
+}
+
+function renderRoster(elId, list){
+  const el = document.getElementById(elId);
+  el.innerHTML = list.map(p => `
+    <div class="roster-row">
+      <span>${p.name}</span>
+      <span>${pillFor(p.attending)}
+        <button class="remove-x" title="Remove player" onclick="removePlayer('${p.id}','${p.name.replace(/'/g,"\\'")}')">✕</button>
+      </span>
+    </div>
+  `).join('');
+}
+
+async function resetAttendance(){
+  if(!confirm('Reset attendance for every player?')) return;
+  await supabase.from('players').update({ attending: null }).neq('is_admin', true);
+  await loadRoster();
+}
+
+function genPassword(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let out = '';
+  for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+function slugUsername(name){
+  return name.toLowerCase().replace(/\ssir$/,'').replace(/\s+/g,'');
+}
+
+async function addPlayer(){
+  const name = document.getElementById('newName').value.trim();
+  const team = document.getElementById('newTeam').value;
+  if(!name){ alert('Enter a player name.'); return; }
+
+  let username = slugUsername(name);
+  const { data: existing } = await supabase.from('players').select('username').eq('username', username);
+  if(existing && existing.length > 0){
+    username = username + team.slice(-1).toLowerCase();
+  }
+  const password = genPassword();
+
+  const { error } = await supabase.from('players').insert({
+    team, name, username, password, is_admin: false, attending: null
+  });
+  if(error){ alert('Could not add player: ' + error.message); return; }
+  document.getElementById('newName').value = '';
+  alert(`Added ${name}\nUsername: ${username}\nPassword: ${password}\n\nShare these with the player.`);
+  await loadRoster();
+}
+
+async function removePlayer(id, name){
+  if(!confirm(`Remove ${name} from the roster?`)) return;
+  await supabase.from('players').delete().eq('id', id);
+  await loadRoster();
+}
+
+async function downloadPDF(){
+  const { data: settings } = await supabase.from('event_settings').select('*').eq('id', 1).maybeSingle();
+  const { data: players } = await supabase.from('players').select('*').eq('attending', 'yes').order('team').order('name');
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('Futsal Matchday — Confirmed Players', 14, 20);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  const when = settings ? `${settings.event_day} · ${settings.event_time} · ${settings.venue}` : '';
+  doc.text(when, 14, 28);
+
+  let y = 42;
+  ['Team A', 'Team B'].forEach(team => {
+    const list = (players || []).filter(p => p.team === team);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(`${team} (${list.length})`, 14, y);
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    if(list.length === 0){
+      doc.text('No confirmed players yet.', 18, y);
+      y += 8;
+    } else {
+      list.forEach((p, i) => { doc.text(`${i+1}. ${p.name}`, 18, y); y += 7; });
+    }
+    y += 6;
+  });
+  doc.save('futsal-confirmed-players.pdf');
+}
+
+(function init(){
+  runDiagnostics();
+  try{
+    const saved = sessionStorage.getItem('teamsheet_user');
+    if(saved){
+      currentUser = JSON.parse(saved);
+      setTimeout(() => { if(supabase) showApp(); }, 400);
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>

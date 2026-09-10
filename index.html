@@ -1,724 +1,547 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Futsal Attendance</title>
-    <!-- PWA Essentials -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1a2a6c">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Futsal Attendance">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #1a2a6c, #2d6a4f, #1a2a6c);
-            min-height: 100vh;
-            padding: 12px;
-            color: #333;
-            -webkit-text-size-adjust: 100%;
-            position: relative;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding-bottom: 30px;
-        }
-
-        /* Header */
-        .header {
-            background: white;
-            border-radius: 16px;
-            padding: 18px;
-            text-align: center;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            position: relative;
-        }
-
-        .header h1 {
-            font-size: 1.5em;
-            color: #1a2a6c;
-            margin-bottom: 4px;
-        }
-
-        .header .venue {
-            color: #2d6a4f;
-            font-size: 1.1em;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .header .date-badge {
-            display: inline-block;
-            background: #e74c3c;
-            color: white;
-            padding: 6px 18px;
-            border-radius: 25px;
-            font-weight: 700;
-            font-size: 0.9em;
-        }
-
-        .conn-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 0.7em;
-            padding: 4px 10px;
-            border-radius: 10px;
-            font-weight: 700;
-            background: #eee;
-            color: #888;
-            z-index: 100;
-        }
-
-        .conn-badge.live { background: #e8f5e9; color: #2e7d32; }
-        .conn-badge.down { background: #ffebee; color: #c62828; }
-        .conn-badge.connecting { background: #fff3cd; color: #856404; }
-
-        .admin-toggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #f0f2f5;
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        .admin-toggle.hidden { display: none; }
-
-        /* Admin Panel */
-        .admin-panel {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            display: none;
-        }
-
-        .admin-panel.active { display: block; }
-
-        .admin-panel h3 {
-            text-align: center;
-            color: #1a2a6c;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-
-        .admin-section {
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .admin-section:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-
-        .admin-section h4 {
-            font-size: 0.9em;
-            color: #555;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .admin-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .admin-btn {
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            font-size: 1em;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-            transition: transform 0.1s;
-        }
-
-        .admin-btn:active { transform: scale(0.98); }
-
-        .btn-edit-info { background: #1a2a6c; color: white; }
-        .btn-reset { background: #e74c3c; color: white; }
-        .btn-add-player { background: #2d6a4f; color: white; }
-
-        .add-player-form {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .add-player-form input, .add-player-form select {
-            flex: 1;
-            min-width: 120px;
-            padding: 12px;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            font-size: 16px;
-            background: #fafafa;
-        }
-
-        .add-player-form button {
-            padding: 12px 20px;
-            background: #2d6a4f;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.9em;
-            cursor: pointer;
-        }
-
-        .player-manage-list {
-            margin-top: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-
-        .player-manage-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 6px;
-            font-size: 0.9em;
-        }
-
-        .remove-player-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.8em;
-            cursor: pointer;
-            font-weight: 700;
-        }
-
-        /* Login */
-        .login-section {
-            background: white;
-            border-radius: 16px;
-            padding: 20px 16px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            text-align: center;
-        }
-
-        .login-section h2 {
-            color: #1a2a6c;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .login-form select,
-        .login-form input {
-            width: 100%;
-            max-width: 340px;
-            padding: 14px;
-            border: 2px solid #eee;
-            border-radius: 10px;
-            font-size: 16px;
-            background: #fafafa;
-        }
-
-        .login-form select:focus,
-        .login-form input:focus {
-            outline: none;
-            border-color: #2d6a4f;
-            background: #fff;
-        }
-
-        .login-btn {
-            width: 100%;
-            max-width: 340px;
-            padding: 14px;
-            background: #1a2a6c;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1em;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .login-btn:active {
-            background: #2d6a4f;
-            transform: scale(0.98);
-        }
-
-        .login-btn:disabled {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        .login-message {
-            margin-top: 12px;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            display: none;
-            min-height: 1.2em;
-        }
-
-        .login-message.error { display: block; background: #ffebee; color: #c62828; }
-        .login-message.success { display: block; background: #e8f5e9; color: #2e7d32; }
-
-        /* User Panel */
-        .user-panel {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            display: none;
-            text-align: center;
-        }
-
-        .user-panel.active { display: block; }
-
-        .welcome-text {
-            font-size: 1.2em;
-            color: #1a2a6c;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .badges {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-
-        .badge {
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-size: 0.85em;
-            font-weight: 700;
-        }
-
-        .team-a-badge { background: #ffebee; color: #c62828; }
-        .team-b-badge { background: #e3f2fd; color: #1565c0; }
-        .admin-badge { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
-
-        .question-text {
-            margin-bottom: 15px;
-            color: #555;
-            font-size: 0.95em;
-            line-height: 1.4;
-            min-height: 1.4em;
-        }
-
-        /* Attendance Buttons */
-        .attendance-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        .action-btn {
-            padding: 18px 10px;
-            border-radius: 12px;
-            font-size: 1em;
-            font-weight: 700;
-            text-align: center;
-            cursor: pointer;
-            user-select: none;
-            border: 2px solid transparent;
-            transition: all 0.15s ease;
-            min-height: 2.4em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .action-btn.disabled {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        .btn-yes {
-            background: white;
-            border-color: #28a745;
-            color: #28a745;
-        }
-
-        .btn-yes.active {
-            background: #28a745;
-            color: white;
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.35);
-            transform: translateY(-1px);
-        }
-
-        .btn-no {
-            background: white;
-            border-color: #dc3545;
-            color: #dc3545;
-        }
-
-        .btn-no.active {
-            background: #dc3545;
-            color: white;
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.35);
-            transform: translateY(-1px);
-        }
-
-        .logout-btn {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.9em;
-            cursor: pointer;
-        }
-
-        .logout-btn:active { transform: scale(0.98); }
-
-        /* Teams List */
-        .teams-container {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-            min-height: 200px;
-        }
-
-        @media (min-width: 650px) {
-            .teams-container { grid-template-columns: 1fr 1fr; }
-        }
-
-        .team-card {
-            background: white;
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            display: flex;
-            flex-direction: column;
-            min-height: 250px;
-        }
-
-        .team-card.team-a { border-top: 5px solid #e74c3c; }
-        .team-card.team-b { border-top: 5px solid #3498db; }
-
-        .team-card h3 {
-            text-align: center;
-            margin-bottom: 12px;
-            font-size: 1.1em;
-            flex-shrink: 0;
-        }
-
-        .list-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            max-height: 300px;
-            padding-right: 5px;
-            position: relative;
-        }
-
-        .list-container::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .list-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .list-container::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 10px;
-        }
-
-        .loading-state,
-        .error-state,
-        .empty-state {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-            font-style: italic;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .loading-state { color: #2d6a4f; }
-        .error-state { color: #c62828; }
-        .empty-state { color: #856404; }
-
-        .player-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 10px;
-            margin-bottom: 6px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-size: 0.95em;
-            transition: background 0.15s ease;
-        }
-
-        .player-item.updated {
-            animation: flash 0.6s ease;
-        }
-
-        @keyframes flash {
-            0% { background: #e8f0fe; }
-            100% { background: #f8f9fa; }
-        }
-
-        .status-badge {
-            font-size: 0.75em;
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .st-pending { background: #fff3cd; color: #856404; }
-        .st-yes { background: #d4edda; color: #155724; }
-        .st-no { background: #f8d7da; color: #721c24; }
-        .st-you { background: #cce5ff; color: #004085; font-weight: 700; }
-
-        /* Summary */
-        .summary-section {
-            background: white;
-            border-radius: 16px;
-            padding: 18px;
-            margin-top: 16px;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .stats-grid {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .stat-box { min-width: 70px; }
-
-        .stat-num {
-            font-size: 2em;
-            font-weight: 800;
-            color: #2d6a4f;
-            line-height: 1;
-            transition: all 0.2s ease;
-        }
-
-        .stat-label {
-            font-size: 0.7em;
-            color: #666;
-            text-transform: uppercase;
-            margin-top: 4px;
-        }
-
-        .hidden { display: none !important; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saturday Futsal — Khelkunja Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --pitch-dark:#0E2318;
+    --pitch-panel:#153A28;
+    --pitch-panel-2:#1B4530;
+    --pitch-line:#2C5C40;
+    --chalk:#F4F1E6;
+    --chalk-dim:#AFC3B4;
+    --floodlight:#E8B94E;
+    --confirmed:#4E9F6E;
+    --out:#C1544A;
+    --pending:#5C7568;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(90deg, rgba(244,241,230,0.02) 0 2px, transparent 2px 140px),
+      var(--pitch-dark);
+    color:var(--chalk);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+    line-height:1.45;
+  }
+  .display{font-family:'Bebas Neue', sans-serif; letter-spacing:0.02em;}
+  a{color:var(--floodlight);}
+  .wrap{max-width:880px;margin:0 auto;padding:28px 20px 80px;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;gap:12px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .display{font-size:32px;color:var(--chalk);}
+  .brand .sub{color:var(--chalk-dim);font-size:14px;}
+  .who{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--chalk-dim);}
+  .who strong{color:var(--chalk);}
+  .badge-admin{background:var(--floodlight);color:#26210A;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;letter-spacing:0.03em;}
+
+  button, input, select{font-family:inherit;font-size:15px;}
+  .btn{
+    background:var(--floodlight);color:#26210A;border:none;border-radius:10px;
+    padding:10px 18px;font-weight:700;cursor:pointer;transition:transform .08s ease, filter .15s ease;
+  }
+  .btn:hover{filter:brightness(1.06);}
+  .btn:active{transform:scale(0.97);}
+  .btn.secondary{background:transparent;color:var(--chalk);border:1px solid var(--pitch-line);font-weight:600;}
+  .btn.danger{background:var(--out);color:#fff;}
+  .btn.ghost{background:transparent;color:var(--chalk-dim);border:none;padding:6px 10px;font-weight:600;}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .btn.small{padding:6px 12px;font-size:13px;border-radius:8px;}
+
+  input[type=text], input[type=email], input[type=password], input[type=date], input[type=time], select{
+    width:100%;background:var(--pitch-dark);border:1px solid var(--pitch-line);color:var(--chalk);
+    border-radius:8px;padding:10px 12px;outline:none;
+  }
+  input:focus, select:focus{border-color:var(--floodlight);}
+  label{display:block;font-size:12px;color:var(--chalk-dim);margin-bottom:5px;}
+  .field{margin-bottom:14px;}
+
+  .card{background:var(--pitch-panel);border:1px solid var(--pitch-line);border-radius:var(--radius);padding:22px;}
+  .msg{font-size:14px;padding:10px 12px;border-radius:8px;margin-bottom:14px;}
+  .msg.error{background:rgba(193,84,74,0.18);color:#F3B8B1;border:1px solid rgba(193,84,74,0.4);}
+  .msg.ok{background:rgba(78,159,110,0.18);color:#BFE6CC;border:1px solid rgba(78,159,110,0.4);}
+
+  /* ---- auth ---- */
+  .auth-card{max-width:380px;margin:60px auto;}
+  .auth-toggle{display:flex;gap:18px;margin-bottom:18px;border-bottom:1px solid var(--pitch-line);}
+  .auth-toggle button{background:none;border:none;color:var(--chalk-dim);font-weight:700;padding:8px 2px 12px;cursor:pointer;border-bottom:2px solid transparent;}
+  .auth-toggle button.active{color:var(--floodlight);border-color:var(--floodlight);}
+
+  /* ---- hero / match card ---- */
+  .hero{
+    display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;
+    background:linear-gradient(135deg, var(--pitch-panel-2), var(--pitch-panel));
+    border:1px solid var(--pitch-line);border-radius:20px;padding:26px;margin-bottom:22px;
+  }
+  .hero .day{text-align:center;}
+  .hero .day .n{font-family:'Bebas Neue';font-size:56px;color:var(--floodlight);line-height:0.9;}
+  .hero .day .d{font-size:12px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:0.08em;}
+  .hero .details .venue{font-size:20px;font-weight:700;}
+  .hero .details .time{color:var(--chalk-dim);font-size:14px;margin-top:4px;}
+  .hero .tally{text-align:center;}
+  .hero .tally .n{font-family:'Bebas Neue';font-size:40px;color:var(--chalk);line-height:0.9;}
+  .hero .tally .d{font-size:11px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:0.06em;}
+  @media (max-width:560px){
+    .hero{grid-template-columns:1fr;text-align:center;}
+  }
+
+  .my-status{display:flex;gap:10px;margin-bottom:26px;flex-wrap:wrap;align-items:center;}
+  .my-status .seg{display:flex;border:1px solid var(--pitch-line);border-radius:10px;overflow:hidden;}
+  .my-status .seg button{border:none;padding:10px 16px;font-weight:700;cursor:pointer;background:var(--pitch-panel);color:var(--chalk-dim);}
+  .my-status .seg button.on-yes.active{background:var(--confirmed);color:#0E2318;}
+  .my-status .seg button.on-no.active{background:var(--out);color:#fff;}
+  .my-status .note{font-size:13px;color:var(--chalk-dim);}
+
+  .teams{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media (max-width:640px){.teams{grid-template-columns:1fr;}}
+  .team h2{font-family:'Bebas Neue';font-size:24px;letter-spacing:0.04em;margin:0 0 12px;color:var(--chalk);}
+  .roster{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .roster li{
+    display:flex;align-items:center;gap:10px;background:var(--pitch-dark);border:1px solid var(--pitch-line);
+    border-radius:10px;padding:9px 12px;
+  }
+  .num{
+    width:26px;height:26px;border-radius:50%;background:var(--pitch-panel-2);color:var(--chalk-dim);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;
+  }
+  .pname{flex:1;font-weight:600;}
+  .pname .mine{font-size:11px;color:var(--floodlight);font-weight:700;margin-left:6px;}
+  .status-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;letter-spacing:0.02em;white-space:nowrap;}
+  .status-pill.yes{background:rgba(78,159,110,0.22);color:var(--confirmed);}
+  .status-pill.no{background:rgba(193,84,74,0.22);color:#F0938A;}
+  .status-pill.pending{background:rgba(92,117,104,0.3);color:var(--chalk-dim);}
+  .status-pill.clickable{cursor:pointer;}
+  .remove-x{background:none;border:none;color:var(--chalk-dim);cursor:pointer;font-size:16px;padding:0 2px;line-height:1;}
+  .remove-x:hover{color:var(--out);}
+
+  .add-player{display:flex;gap:8px;margin-top:4px;}
+  .add-player input{flex:1;}
+  .add-player select{width:78px;flex-shrink:0;}
+
+  .admin-panel{margin-top:30px;border-top:1px dashed var(--pitch-line);padding-top:22px;}
+  .admin-panel h2{font-family:'Bebas Neue';font-size:22px;color:var(--floodlight);margin:0 0 14px;letter-spacing:0.03em;}
+  .admin-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:end;}
+  @media (max-width:640px){.admin-grid{grid-template-columns:1fr;}}
+  .foot-note{text-align:center;color:var(--chalk-dim);font-size:12px;margin-top:36px;}
+  .claim-list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow:auto;margin:14px 0;}
+  .claim-item{display:flex;align-items:center;gap:10px;background:var(--pitch-dark);border:1px solid var(--pitch-line);border-radius:10px;padding:10px 12px;cursor:pointer;}
+  .claim-item:hover{border-color:var(--floodlight);}
+  .claim-item input{width:auto;}
+  .hidden{display:none !important;}
+  .center{text-align:center;}
+  .spinner{color:var(--chalk-dim);text-align:center;padding:60px 0;}
+</style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <span class="conn-badge" id="connBadge">● connecting</span>
-            <button class="admin-toggle hidden" id="adminToggle" onclick="toggleAdminPanel()">⚙️</button>
-            <h1>⚽ Futsal Attendance</h1>
-            <p class="venue" id="displayVenue">Khelkunja Arena</p>
-            <span class="date-badge" id="displayTime">📅 This Saturday @ 9:00 AM</span>
+<div class="wrap">
+
+  <div id="loading" class="spinner">Loading the pitch…</div>
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div id="auth-screen" class="hidden">
+    <div class="topbar">
+      <div class="brand"><span class="display">SATURDAY FUTSAL</span><span class="sub">Khelkunja Arena</span></div>
+    </div>
+    <div class="card auth-card">
+      <div class="auth-toggle">
+        <button id="tab-signin" class="active">Log in</button>
+        <button id="tab-signup">Create ID</button>
+      </div>
+      <div id="auth-msg"></div>
+      <form id="auth-form">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="auth-email" required placeholder="you@example.com" autocomplete="email">
         </div>
-
-        <!-- Admin Panel -->
-        <div class="admin-panel" id="adminPanel">
-            <h3>👑 Admin Controls</h3>
-
-            <div class="admin-section">
-                <h4>Event Details</h4>
-                <div class="admin-actions">
-                    <button class="admin-btn btn-edit-info" onclick="openEditModal()">📝 Edit Venue & Time</button>
-                </div>
-            </div>
-
-            <div class="admin-section">
-                <h4>Manage Players</h4>
-                <div class="add-player-form">
-                    <input type="text" id="newPlayerName" placeholder="Player Name">
-                    <select id="newPlayerTeam">
-                        <option value="A">Team A</option>
-                        <option value="B">Team B</option>
-                    </select>
-                    <button onclick="addPlayer()">➕ Add</button>
-                </div>
-                <div class="player-manage-list" id="manageList"></div>
-            </div>
-
-            <div class="admin-section">
-                <h4>Danger Zone</h4>
-                <div class="admin-actions">
-                    <button class="admin-btn btn-reset" onclick="resetData()">🔄 Reset All Attendance</button>
-                </div>
-            </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="auth-password" required minlength="6" placeholder="At least 6 characters" autocomplete="current-password">
         </div>
+        <button type="submit" class="btn" id="auth-submit" style="width:100%;">Log in</button>
+      </form>
+    </div>
+  </div>
 
-        <!-- Login -->
-        <div class="login-section" id="loginSection">
-            <h2>🔐 Player Login</h2>
-            <div class="login-form">
-                <select id="playerSelect">
-                    <option value="">-- Select Your Name --</option>
-                    <optgroup label="🔴 Team A" id="optTeamA"></optgroup>
-                    <optgroup label="🔵 Team B" id="optTeamB"></optgroup>
-                </select>
-                <input type="password" id="passwordInput" placeholder="Enter Password" autocomplete="off">
-                <button class="login-btn" id="loginBtn">Login</button>
-            </div>
-            <div class="login-message" id="loginMsg"></div>
-        </div>
+  <!-- ============ CLAIM NAME SCREEN ============ -->
+  <div id="claim-screen" class="hidden">
+    <div class="topbar">
+      <div class="brand"><span class="display">SATURDAY FUTSAL</span></div>
+      <button class="btn ghost" id="claim-signout">Sign out</button>
+    </div>
+    <div class="card">
+      <h2 class="display" style="font-size:22px;margin-top:0;">Which name on the sheet is you?</h2>
+      <p style="color:var(--chalk-dim);font-size:14px;">Pick your name once — you'll only see and tick your own attendance after this.</p>
+      <div id="claim-msg"></div>
+      <div class="claim-list" id="claim-list"></div>
+      <button class="btn" id="claim-confirm" disabled>Confirm — this is me</button>
+    </div>
+  </div>
 
-        <!-- Dashboard -->
-        <div class="user-panel" id="userPanel">
-            <div class="welcome-text" id="welcomeText"></div>
-            <div class="badges">
-                <span class="badge" id="teamBadge"></span>
-                <span class="badge admin-badge hidden" id="adminBadge">👑 Admin</span>
-            </div>
-            <p class="question-text">Are you playing this session?</p>
-            <div class="attendance-actions">
-                <div class="action-btn btn-yes" id="btnYes">✅ PLAYING</div>
-                <div class="action-btn btn-no" id="btnNo">❌ ABSENT</div>
-            </div>
-            <button class="logout-btn" id="logoutBtn">🚪 Logout</button>
-        </div>
-
-        <!-- Teams List -->
-        <div class="teams-container">
-            <div class="team-card team-a">
-                <h3>🔴 Team A</h3>
-                <div class="list-container">
-                    <div class="loading-state" id="listALoading">Loading players...</div>
-                    <div class="error-state hidden" id=listAError></div>
-                    <div class="empty-state hidden" id=listAEmpty>No players in Team A</div>
-                    <div id="listA"></div>
-                </div>
-            </div>
-            <div class="team-card team-b">
-                <h3>🔵 Team B</h3>
-                <div class="list-container">
-                    <div class="loading-state" id="listBLoading">Loading players...</div>
-                    <div class="error-state hidden" id=listBError></div>
-                    <div class="empty-state hidden" id=listBEmpty>No players in Team B</div>
-                    <div id="listB"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Summary -->
-        <div class="summary-section">
-            <h2>📊 Stats</h2>
-            <div class="stats-grid">
-                <div class="stat-box"><div class="stat-num" id="countYes">0</div><div class="stat-label">Playing</div></div>
-                <div class="stat-box"><div class="stat-num" id="countNo">0</div><div class="stat-label">Absent</div></div>
-                <div class="stat-box"><div class="stat-num" id="countPending">0</div><div class="stat-label">Pending</div></div>
-            </div>
-        </div>
+  <!-- ============ MAIN APP ============ -->
+  <div id="app-screen" class="hidden">
+    <div class="topbar">
+      <div class="brand"><span class="display">SATURDAY FUTSAL</span><span class="sub">Khelkunja Arena</span></div>
+      <div class="who">
+        <span>Playing as <strong id="my-name">—</strong></span>
+        <span id="admin-flag" class="badge-admin hidden">ADMIN</span>
+        <button class="btn ghost" id="signout-btn">Sign out</button>
+      </div>
     </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000;">
-        <div style="background: white; border-radius: 16px; padding: 20px; width: 100%; max-width: 400px;">
-            <h3>📝 Edit Event Details</h3>
-            <input type="text" id="editVenue" placeholder="Venue Name" style="width:100%;padding:14px;border:2px solid #eee;border-radius:10px;margin-bottom:10px;background:#fafafa;">
-            <input type="text" id="editTime" placeholder="Time (e.g., Saturday 9 AM)" style="width:100%;padding:14px;border:2px solid #eee;border-radius:10px;margin-bottom:10px;background:#fafafa;">
-            <div style="display:flex;gap:10px;margin-top:5px;">
-                <button onclick="closeEditModal()" style="flex:1;padding:14px;border:none;border-radius:10px;background:#e9ecef;color:#333;">Cancel</button>
-                <button onclick="saveSettings()" style="flex:1;padding:14px;border:none;border-radius:10px;background:#2d6a4f;color:white;">Save</button>
-            </div>
-        </div>
+    <div class="hero">
+      <div class="day">
+        <div class="n" id="hero-daynum">--</div>
+        <div class="d" id="hero-dayname">SAT</div>
+      </div>
+      <div class="details">
+        <div class="venue" id="hero-venue">Khelkunja Arena</div>
+        <div class="time" id="hero-time">9:00 AM</div>
+      </div>
+      <div class="tally">
+        <div class="n" id="hero-tally">0/15</div>
+        <div class="d">confirmed</div>
+      </div>
     </div>
 
-    <!-- Supabase client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <div class="my-status" id="my-status-block">
+      <div class="seg">
+        <button class="on-yes" id="btn-in">✓ I'm in</button>
+        <button class="on-no" id="btn-out">✕ Can't make it</button>
+      </div>
+      <span class="note" id="my-status-note"></span>
+    </div>
 
-    <script>
-        // =========================================================
-        // SUPABASE CONFIG — REPLACE THESE WITH YOUR ACTUAL CREDENTIALS
-        // Get these from: Supabase Project Settings > API
-        // =========================================================
-        const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co'; // <-- REPLACE THIS
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaWt5ZnNxb3lsZmd3c3ZlZ3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NzMzNTgsImV4cCI6MjEwNDU0OTM1OH0.Y8ChN4jNtD4Vat20xZ6AKNTRqz4rbh55pv3gps_QrYA'; // <-- REPLACE THIS
+    <div id="app-msg"></div>
 
-        if (SUPABASE_URL.includes('REPLACE_THIS') || SUPABASE_ANON_KEY.includes('REPLACE_THIS')) {
-            console.error('⚠️ SUPABASE CREDENTIALS NOT CONFIGURED - PLEASE UPDATE SUPABASE_URL AND SUPABASE_ANON_KEY IN THE CODE');
-        }
+    <div class="teams">
+      <div class="team">
+        <h2>Team A</h2>
+        <ul class="roster" id="roster-a"></ul>
+        <div class="add-player hidden" data-team="A">
+          <input type="text" placeholder="Add player name">
+          <button class="btn small">Add</button>
+        </div>
+      </div>
+      <div class="team">
+        <h2>Team B</h2>
+        <ul class="roster" id="roster-b"></ul>
+        <div class="add-player hidden" data-team="B">
+          <input type="text" placeholder="Add player name">
+          <button class="btn small">Add</button>
+        </div>
+      </div>
+    </div>
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <div class="admin-panel hidden" id="admin-panel">
+      <h2>Admin — Arun's controls</h2>
+      <div class="admin-grid">
+        <div class="field">
+          <label>Venue</label>
+          <input type="text" id="admin-venue">
+        </div>
+        <div class="field">
+          <label>Match date</label>
+          <input type="date" id="admin-date">
+        </div>
+        <div class="field">
+          <label>Match time</label>
+          <input type="time" id="admin-time">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;">
+        <button class="btn" id="admin-save">Save venue &amp; time</button>
+        <button class="btn danger" id="admin-reset">Reset this week's attendance</button>
+      </div>
+    </div>
 
-        // --- STATE ---
-        let roster = { teamA: [], teamB: [] };
-        let attendanceData = {};
-        let currentUser = null;
-        let isLoading = {
-            roster: false,
-            attendance: false,
-            settings: false
-        };
-        let loadErrors = {
-            roster: null,
-            attendance: null,
-            settings: null
-        };
+    <div class="foot-note">Tap your own name's tick above the sheet. Admin can tap any player's badge to set it directly.</div>
+  </div>
+</div>
 
-        // --- INIT ---
-        document.addEventListener('DOMContentLoaded', () => {
-            setupListeners();
-            restoreSession();
-            initializeApp();
-        });
+<script>
+/* ---------------------------------------------------------------
+   CONFIG — anon key is safe to publish in a public repo: every
+   table is locked down with Row Level Security (see schema.sql),
+   so this key alone cannot read or write anything it shouldn't.
+------------------------------------------------------------------ */
+const SUPABASE_URL = "https://lnikyfsqoylfgwsvegsq.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaWt5ZnNxb3lsZmd3c3ZlZ3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NzMzNTgsImV4cCI6MjEwNDU0OTM1OH0.Y8ChN4jNtD4Vat20xZ6AKNTRqz4rbh55pv3gps_QrYA";
 
-        function setupListeners() {
-            document.getElementById('loginBtn').addEventListener('click', doLogin);
-            document.getElementById('passwordInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') doLogin();
-            });
-            document.getElementById('btnYes').addEventListener('click', () => setAttendance('yes'));
-            document.getElementById('btnNo').addEventListener('click', () => setAttendance('no'));
-            document.getElementById('logoutBtn').addEventListener('click', doLogout);
-        }
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- SESSION ---
-        function restoreSession() {
-            try {
-                const saved = session
+let state = {
+  session: null,
+  profile: null,
+  players: [],
+  settings: null,
+  attendance: {}, // player_id -> boolean
+};
+
+const $ = (sel) => document.querySelector(sel);
+const el = (id) => document.getElementById(id);
+
+function showScreen(id){
+  ['loading','auth-screen','claim-screen','app-screen'].forEach(s=>{
+    el(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function flash(container, text, type){
+  container.innerHTML = text ? `<div class="msg ${type}">${text}</div>` : '';
+}
+
+/* ---------------- AUTH ---------------- */
+let authMode = 'signin';
+el('tab-signin').onclick = () => { authMode='signin'; el('tab-signin').classList.add('active'); el('tab-signup').classList.remove('active'); el('auth-submit').textContent='Log in'; flash(el('auth-msg'),'',''); };
+el('tab-signup').onclick = () => { authMode='signup'; el('tab-signup').classList.add('active'); el('tab-signin').classList.remove('active'); el('auth-submit').textContent='Create ID'; flash(el('auth-msg'),'',''); };
+
+el('auth-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const email = el('auth-email').value.trim();
+  const password = el('auth-password').value;
+  el('auth-submit').disabled = true;
+  flash(el('auth-msg'),'','');
+  try{
+    if(authMode === 'signup'){
+      const { error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      flash(el('auth-msg'), 'ID created. If email confirmation is on, check your inbox, then log in.', 'ok');
+      el('tab-signin').click();
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+    }
+  } catch(err){
+    flash(el('auth-msg'), err.message || 'Something went wrong.', 'error');
+  } finally {
+    el('auth-submit').disabled = false;
+  }
+};
+
+el('claim-signout').onclick = () => sb.auth.signOut();
+el('signout-btn').onclick = () => sb.auth.signOut();
+
+/* ---------------- DATA LOADING ---------------- */
+async function loadAll(){
+  const [{ data: players }, { data: settings }, { data: profile }] = await Promise.all([
+    sb.from('players').select('*').order('team').order('id'),
+    sb.from('settings').select('*').eq('id',1).single(),
+    sb.from('profiles').select('*').eq('id', state.session.user.id).single(),
+  ]);
+  state.players = players || [];
+  state.settings = settings || null;
+  state.profile = profile || null;
+
+  if(state.settings){
+    const { data: attendance } = await sb.from('attendance').select('player_id, available').eq('match_date', state.settings.match_date);
+    const map = {};
+    (attendance||[]).forEach(a => map[a.player_id] = a.available);
+    state.attendance = map;
+  }
+}
+
+async function refreshAndRender(){
+  await loadAll();
+  render();
+}
+
+/* ---------------- RENDER ---------------- */
+function formatDate(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  return { day: d.getDate(), name: d.toLocaleDateString(undefined,{weekday:'short'}).toUpperCase(), full: d.toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'}) };
+}
+function formatTime(t){
+  const [h,m] = t.split(':').map(Number);
+  const ap = h>=12?'PM':'AM';
+  const hh = ((h+11)%12)+1;
+  return `${hh}:${String(m).padStart(2,'0')} ${ap}`;
+}
+
+function render(){
+  if(!state.profile){ showScreen('auth-screen'); return; }
+  if(!state.profile.player_id){ renderClaimScreen(); showScreen('claim-screen'); return; }
+
+  showScreen('app-screen');
+  const isAdmin = !!state.profile.is_admin;
+  const myPlayer = state.players.find(p=>p.id === state.profile.player_id);
+  el('my-name').textContent = myPlayer ? myPlayer.name : '—';
+  el('admin-flag').classList.toggle('hidden', !isAdmin);
+  el('admin-panel').classList.toggle('hidden', !isAdmin);
+  document.querySelectorAll('.add-player').forEach(n=>n.classList.toggle('hidden', !isAdmin));
+
+  if(state.settings){
+    const d = formatDate(state.settings.match_date);
+    el('hero-daynum').textContent = d.day;
+    el('hero-dayname').textContent = d.name;
+    el('hero-venue').textContent = state.settings.venue;
+    el('hero-time').textContent = `${d.full} · ${formatTime(state.settings.match_time)}`;
+    el('admin-venue').value = state.settings.venue;
+    el('admin-date').value = state.settings.match_date;
+    el('admin-time').value = state.settings.match_time.slice(0,5);
+  }
+
+  const total = state.players.length;
+  const confirmed = Object.values(state.attendance).filter(v=>v===true).length;
+  el('hero-tally').textContent = `${confirmed}/${total}`;
+
+  // my status buttons
+  const mine = state.attendance[state.profile.player_id];
+  el('btn-in').classList.toggle('active', mine === true);
+  el('btn-out').classList.toggle('active', mine === false);
+  el('my-status-note').textContent = mine === undefined ? "You haven't responded yet." : (mine ? "You're marked in." : "You're marked out.");
+
+  renderRoster('A', el('roster-a'), isAdmin);
+  renderRoster('B', el('roster-b'), isAdmin);
+}
+
+function statusPillHtml(playerId, isAdmin){
+  const v = state.attendance[playerId];
+  const cls = v === true ? 'yes' : v === false ? 'no' : 'pending';
+  const label = v === true ? '✓ In' : v === false ? '✕ Out' : '—';
+  return `<span class="status-pill ${cls} ${isAdmin?'clickable':''}" data-pid="${playerId}">${label}</span>`;
+}
+
+function renderRoster(team, container, isAdmin){
+  const list = state.players.filter(p=>p.team===team);
+  container.innerHTML = list.map((p,i)=>{
+    const mine = p.id === state.profile.player_id;
+    return `<li>
+      <span class="num">${i+1}</span>
+      <span class="pname">${escapeHtml(p.name)}${mine?'<span class="mine">YOU</span>':''}</span>
+      ${statusPillHtml(p.id, isAdmin)}
+      ${isAdmin ? `<button class="remove-x" data-remove="${p.id}" title="Remove player">✕</button>` : ''}
+    </li>`;
+  }).join('') || `<li style="justify-content:center;color:var(--chalk-dim);">No players yet.</li>`;
+
+  if(isAdmin){
+    container.parentElement.querySelectorAll('[data-remove]').forEach(btn=>{
+      btn.onclick = () => removePlayer(Number(btn.dataset.remove));
+    });
+    container.parentElement.querySelectorAll('.status-pill.clickable').forEach(pill=>{
+      pill.onclick = () => adminCyclePlayerStatus(Number(pill.dataset.pid));
+    });
+  }
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- CLAIM SCREEN ---------------- */
+let claimSelection = null;
+function renderClaimScreen(){
+  claimSelection = null;
+  el('claim-confirm').disabled = true;
+  const unclaimedIds = new Set(); // filled after we know which player_ids are taken
+  const takenIds = new Set(); // we don't have all profiles' player_ids client-side beyond RLS-visible profiles, but select_all policy allows it
+  sb.from('profiles').select('player_id').not('player_id','is',null).then(({data})=>{
+    (data||[]).forEach(r=>takenIds.add(r.player_id));
+    const list = state.players.filter(p=>!takenIds.has(p.id));
+    el('claim-list').innerHTML = list.map(p=>`
+      <label class="claim-item">
+        <input type="radio" name="claim" value="${p.id}">
+        <span>${escapeHtml(p.name)} <span style="color:var(--chalk-dim);font-size:12px;">— Team ${p.team}</span></span>
+      </label>
+    `).join('') || `<div style="color:var(--chalk-dim);">Every name has been claimed. Ask the admin to add yours.</div>`;
+    document.querySelectorAll('input[name=claim]').forEach(r=>{
+      r.onchange = () => { claimSelection = Number(r.value); el('claim-confirm').disabled = false; };
+    });
+  });
+}
+
+el('claim-confirm').onclick = async () => {
+  if(!claimSelection) return;
+  el('claim-confirm').disabled = true;
+  const { error } = await sb.from('profiles').update({ player_id: claimSelection }).eq('id', state.session.user.id);
+  if(error){ flash(el('claim-msg'), error.message, 'error'); el('claim-confirm').disabled=false; return; }
+  await refreshAndRender();
+};
+
+/* ---------------- ATTENDANCE ---------------- */
+async function setMyAttendance(available){
+  const playerId = state.profile.player_id;
+  const { error } = await sb.from('attendance').upsert({
+    player_id: playerId, match_date: state.settings.match_date, available, updated_at: new Date().toISOString()
+  }, { onConflict: 'player_id,match_date' });
+  if(error){ flash(el('app-msg'), error.message, 'error'); return; }
+  await refreshAndRender();
+}
+el('btn-in').onclick = () => setMyAttendance(true);
+el('btn-out').onclick = () => setMyAttendance(false);
+
+async function adminCyclePlayerStatus(playerId){
+  const current = state.attendance[playerId];
+  const next = current === undefined ? true : current === true ? false : true; // undefined->in, in->out, out->in
+  const { error } = await sb.from('attendance').upsert({
+    player_id: playerId, match_date: state.settings.match_date, available: next, updated_at: new Date().toISOString()
+  }, { onConflict: 'player_id,match_date' });
+  if(error){ flash(el('app-msg'), error.message, 'error'); return; }
+  await refreshAndRender();
+}
+
+/* ---------------- ADMIN ---------------- */
+el('admin-save').onclick = async () => {
+  const venue = el('admin-venue').value.trim();
+  const match_date = el('admin-date').value;
+  const match_time = el('admin-time').value;
+  if(!venue || !match_date || !match_time) return;
+  const { error } = await sb.from('settings').update({ venue, match_date, match_time, updated_at: new Date().toISOString() }).eq('id',1);
+  if(error){ flash(el('app-msg'), error.message, 'error'); return; }
+  flash(el('app-msg'), 'Match details updated.', 'ok');
+  await refreshAndRender();
+};
+
+el('admin-reset').onclick = async () => {
+  if(!confirm("Reset everyone's attendance for this Saturday's match?")) return;
+  const { error } = await sb.from('attendance').delete().eq('match_date', state.settings.match_date);
+  if(error){ flash(el('app-msg'), error.message, 'error'); return; }
+  flash(el('app-msg'), 'Attendance reset.', 'ok');
+  await refreshAndRender();
+};
+
+document.querySelectorAll('.add-player').forEach(wrap=>{
+  const team = wrap.dataset.team;
+  const input = wrap.querySelector('input');
+  const btn = wrap.querySelector('button');
+  btn.onclick = async () => {
+    const name = input.value.trim();
+    if(!name) return;
+    const { error } = await sb.from('players').insert({ name, team });
+    if(error){ flash(el('app-msg'), error.message, 'error'); return; }
+    input.value = '';
+    await refreshAndRender();
+  };
+});
+
+async function removePlayer(id){
+  if(!confirm('Remove this player from the roster? This also clears their attendance history.')) return;
+  const { error } = await sb.from('players').delete().eq('id', id);
+  if(error){ flash(el('app-msg'), error.message, 'error'); return; }
+  await refreshAndRender();
+}
+
+/* ---------------- BOOTSTRAP ---------------- */
+async function boot(){
+  const { data: { session } } = await sb.auth.getSession();
+  state.session = session;
+  if(!session){ showScreen('auth-screen'); return; }
+  await refreshAndRender();
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  state.session = session;
+  if(!session){ state.profile = null; showScreen('auth-screen'); return; }
+  await refreshAndRender();
+});
+
+boot();
+setInterval(() => { if(state.session) refreshAndRender(); }, 20000); // keep things fresh across phones
+</script>
+</body>
+</html>

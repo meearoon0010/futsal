@@ -1,4 +1,4 @@
-# Futsal Night — Attendance Tracker
+# Futsal — Attendance Tracker
 
 A single-page attendance tracker for a futsal group: mark players Yes/No,
 edit the venue and kick-off time, auto-split confirmed players into Group A

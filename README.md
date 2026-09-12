@@ -50,3 +50,25 @@ that up if you'd like.
   manual "move" option to swap someone between groups)
 - "Download attendance PDF" opens the browser print dialog with a clean
   summary sheet — choose "Save as PDF" as the destination
+
+## Login / Account
+
+The app now requires signing in before use, via Supabase Auth:
+
+- **Log In** — email + password.
+- **Create Account** — email, display name, password, confirm password.
+
+It's wired to this Supabase project:
+- Project URL: `https://lnikyfsqoylfgwsvegsq.supabase.co`
+- Publishable key: `sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6`
+
+If email confirmation is enabled on the Supabase project (Authentication →
+Settings), new users must click the confirmation link in their email before
+they can log in. You can turn this off in the Supabase dashboard under
+**Authentication → Providers → Email → Confirm email** if you want instant
+sign-in without email verification.
+
+Attendance data itself is still saved to `localStorage`, per browser — only
+login/signup go through Supabase for now. Let me know if you'd like the
+roster synced live across everyone's devices next.
+

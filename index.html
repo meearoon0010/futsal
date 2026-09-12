@@ -341,11 +341,175 @@
     .masthead h1{font-size:34px;}
     .scoreboard-grid{grid-template-columns:1fr;}
   }
+
+  /* ---------- Auth ---------- */
+  .auth-wrap{
+    max-width:400px;
+    margin:0 auto;
+    padding:60px 18px;
+  }
+  .auth-card{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    padding:26px 24px 24px;
+  }
+  .auth-card h2{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:26px;
+    letter-spacing:1px;
+    margin:0 0 4px;
+    color:var(--chalk);
+  }
+  .auth-card .auth-sub{
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:20px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+    color:var(--muted);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .auth-field input{
+    width:100%;
+    background:var(--bg-night);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:11px 12px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .auth-field input:focus{border-color:var(--turf-bright);}
+  .auth-submit{
+    width:100%;
+    background:var(--amber);
+    color:#221200;
+    border:none;
+    padding:12px 20px;
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .auth-submit:hover{background:#ffb745;}
+  .auth-submit:disabled{opacity:0.6;cursor:not-allowed;}
+  .auth-switch{
+    margin-top:16px;
+    font-size:13px;
+    color:var(--muted);
+    text-align:center;
+  }
+  .auth-switch button{
+    background:none;
+    border:none;
+    color:var(--turf-bright);
+    font-weight:700;
+    cursor:pointer;
+    text-decoration:underline;
+    font-size:13px;
+    padding:0;
+  }
+  .auth-msg{
+    font-size:12px;
+    margin-top:14px;
+    min-height:14px;
+  }
+  .auth-msg.error{color:var(--red);}
+  .auth-msg.success{color:var(--turf-bright);}
+
+  .user-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .user-bar .who{color:var(--chalk);font-weight:600;}
+  .logout-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    font-weight:700;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .logout-btn:hover{border-color:var(--red);color:var(--red);}
 </style>
 </head>
 <body>
 
-<div class="app">
+<!-- Auth screen: shown until the user is logged in -->
+<div class="auth-wrap" id="authWrap">
+  <div class="masthead" style="max-width:400px;margin:0 auto 22px;">
+    <h1>FUTSAL</h1>
+    <div class="tagline">Squad<br>Attendance</div>
+  </div>
+
+  <div class="auth-card">
+    <!-- Login form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <h2>Log In</h2>
+      <div class="auth-sub">Sign in to your account</div>
+      <div class="auth-field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="auth-submit" id="loginBtn">Log In</button>
+      <div class="auth-switch">No account? <button type="button" onclick="showSignup()">Create one</button></div>
+    </form>
+
+    <!-- Sign up form -->
+    <form id="signupForm" style="display:none" onsubmit="handleSignup(event)">
+      <h2>Create Account</h2>
+      <div class="auth-sub">Join the squad</div>
+      <div class="auth-field">
+        <label for="signupEmail">Email</label>
+        <input type="email" id="signupEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="signupDisplayName">Display Name</label>
+        <input type="text" id="signupDisplayName" autocomplete="name" required>
+      </div>
+      <div class="auth-field">
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="auth-field">
+        <label for="signupConfirmPassword">Confirm Password</label>
+        <input type="password" id="signupConfirmPassword" autocomplete="new-password" required minlength="6">
+      </div>
+      <button type="submit" class="auth-submit" id="signupBtn">Create Account</button>
+      <div class="auth-switch">Already have an account? <button type="button" onclick="showLogin()">Log in</button></div>
+    </form>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div class="app" id="appWrap" style="display:none">
+
+  <div class="user-bar">
+    <span>Signed in as <span class="who" id="whoAmI"></span></span>
+    <button class="logout-btn" onclick="handleLogout()">Log Out</button>
+  </div>
 
   <div class="masthead">
     <h1>FUTSAL</h1>
@@ -415,7 +579,106 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ---------- Supabase auth ---------- */
+const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function setAuthMsg(msg, type){
+  const el = document.getElementById('authMsg');
+  el.textContent = msg || '';
+  el.className = 'auth-msg' + (type ? ' '+type : '');
+}
+
+function showLogin(){
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+  setAuthMsg('');
+}
+function showSignup(){
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'block';
+  setAuthMsg('');
+}
+
+async function handleLogin(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Logging in…';
+  const { error } = await sbClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Log In';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+  // onAuthStateChange handles showing the app
+}
+
+async function handleSignup(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('signupEmail').value.trim();
+  const displayName = document.getElementById('signupDisplayName').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+  if(password !== confirmPassword){
+    setAuthMsg('Passwords do not match.', 'error');
+    return;
+  }
+  if(password.length < 6){
+    setAuthMsg('Password must be at least 6 characters.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('signupBtn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  const { data, error } = await sbClient.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: displayName } }
+  });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+
+  if(data.session){
+    // Email confirmation is disabled on this project — user is signed in immediately.
+    return;
+  }
+  setAuthMsg('Account created! Check your email to confirm, then log in.', 'success');
+  document.getElementById('signupForm').reset();
+  showLogin();
+}
+
+async function handleLogout(){
+  await sbClient.auth.signOut();
+}
+
+function showApp(user){
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'block';
+  const displayName = user?.user_metadata?.display_name || user?.email || 'Player';
+  document.getElementById('whoAmI').textContent = displayName;
+  if(!loaded) loadState();
+}
+
+function showAuthScreen(){
+  document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('authWrap').style.display = 'block';
+  showLogin();
+}
+
+sbClient.auth.onAuthStateChange((_event, session) => {
+  if(session && session.user){
+    showApp(session.user);
+  } else {
+    showAuthScreen();
+  }
+});
+
+/* ---------- Attendance app state (unchanged, per-browser storage) ---------- */
 const STORAGE_KEY = 'futsal:state';
 let state = {
   venue: 'Central Futsal Arena',
@@ -641,7 +904,6 @@ function downloadPDF(){
   window.print();
 }
 
-loadState();
 </script>
 
 </body>

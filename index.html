@@ -448,6 +448,26 @@
     cursor:pointer;
   }
   .logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+  .admin-badge{
+    display:inline-block;
+    margin-left:6px;
+    font-size:9px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    color:var(--amber);
+    border:1px solid var(--amber);
+    padding:1px 5px;
+    text-transform:uppercase;
+    vertical-align:middle;
+  }
+
+  /* ---------- Viewer (non-admin) restrictions ---------- */
+  body.role-viewer .add-row{display:none;}
+  body.role-viewer .edit-hint{display:none;}
+  body.role-viewer .field-value{cursor:default;}
+  body.role-viewer .field-value:hover{border-bottom-color:transparent;}
+  body.role-viewer .group-tag{cursor:default;}
 </style>
 </head>
 <body>
@@ -656,12 +676,28 @@ async function handleLogout(){
   await sbClient.auth.signOut();
 }
 
+const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
+let isAdmin = false;
+
 function showApp(user){
   document.getElementById('authWrap').style.display = 'none';
   document.getElementById('appWrap').style.display = 'block';
-  const displayName = user?.user_metadata?.display_name || user?.email || 'Player';
-  document.getElementById('whoAmI').textContent = displayName;
-  if(!loaded) loadState();
+  const email = (user?.email || '').toLowerCase();
+  isAdmin = email === ADMIN_EMAIL;
+  const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
+  const whoAmI = document.getElementById('whoAmI');
+  whoAmI.textContent = displayName;
+  const existingBadge = whoAmI.parentElement.querySelector('.admin-badge');
+  if(existingBadge) existingBadge.remove();
+  if(isAdmin){
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge';
+    badge.textContent = 'Admin';
+    whoAmI.after(badge);
+  }
+  document.body.classList.toggle('role-admin', isAdmin);
+  document.body.classList.toggle('role-viewer', !isAdmin);
+  if(!loaded){ loadState(); } else { render(); }
 }
 
 function showAuthScreen(){
@@ -724,6 +760,7 @@ function setStatus(msg){
 
 /* ---------- Editable fields ---------- */
 function startEdit(field){
+  if(!isAdmin) return;
   const display = document.getElementById(field+'Display');
   const input = document.getElementById(field+'Input');
   input.value = state[field];
@@ -744,6 +781,7 @@ function finishEdit(field){
 
 /* ---------- Players ---------- */
 function addPlayer(){
+  if(!isAdmin) return;
   const input = document.getElementById('newPlayerInput');
   const name = input.value.trim();
   if(!name) return;
@@ -764,6 +802,7 @@ function setAttend(id, val){
 }
 
 function removePlayer(id){
+  if(!isAdmin) return;
   state.players = state.players.filter(p=>p.id!==id);
   reassignGroups();
   render();
@@ -771,6 +810,7 @@ function removePlayer(id){
 }
 
 function swapGroup(id){
+  if(!isAdmin) return;
   const p = state.players.find(p=>p.id===id);
   if(!p) return;
   p.group = p.group === 'A' ? 'B' : 'A';
@@ -813,7 +853,7 @@ function render(){
     const groupTag = document.createElement('span');
     groupTag.className = 'group-tag' + (p.group ? ' '+p.group : '');
     groupTag.textContent = p.group || '·';
-    if(p.group){
+    if(p.group && isAdmin){
       groupTag.title = 'Tap to swap group';
       groupTag.onclick = ()=>swapGroup(p.id);
     }
@@ -835,16 +875,18 @@ function render(){
     toggles.appendChild(yesBtn);
     toggles.appendChild(noBtn);
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.textContent = '✕';
-    removeBtn.title = 'Remove player';
-    removeBtn.onclick = ()=>removePlayer(p.id);
-
     row.appendChild(groupTag);
     row.appendChild(name);
     row.appendChild(toggles);
-    row.appendChild(removeBtn);
+
+    if(isAdmin){
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove player';
+      removeBtn.onclick = ()=>removePlayer(p.id);
+      row.appendChild(removeBtn);
+    }
     rosterList.appendChild(row);
   });
 
@@ -862,19 +904,23 @@ function render(){
     yesPlayers.filter(p=>p.group==='A').forEach(p=>{
       const li = document.createElement('li');
       li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
-      const swap = document.createElement('button');
-      swap.className='swap-btn'; swap.textContent='move →';
-      swap.onclick = ()=>swapGroup(p.id);
-      li.appendChild(swap);
+      if(isAdmin){
+        const swap = document.createElement('button');
+        swap.className='swap-btn'; swap.textContent='move →';
+        swap.onclick = ()=>swapGroup(p.id);
+        li.appendChild(swap);
+      }
       aList.appendChild(li);
     });
     yesPlayers.filter(p=>p.group==='B').forEach(p=>{
       const li = document.createElement('li');
       li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
-      const swap = document.createElement('button');
-      swap.className='swap-btn'; swap.textContent='← move';
-      swap.onclick = ()=>swapGroup(p.id);
-      li.appendChild(swap);
+      if(isAdmin){
+        const swap = document.createElement('button');
+        swap.className='swap-btn'; swap.textContent='← move';
+        swap.onclick = ()=>swapGroup(p.id);
+        li.appendChild(swap);
+      }
       bList.appendChild(li);
     });
   }

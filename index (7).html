@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Futsal — Attendance</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg-night:#0c1310;
+    --bg-panel:#12211a;
+    --bg-panel-2:#0f1c16;
+    --turf:#2f6b3c;
+    --turf-bright:#4c9a5a;
+    --chalk:#eef3ec;
+    --amber:#f5a623;
+    --amber-deep:#c9820e;
+    --muted:#7f9488;
+    --line:#233b2c;
+    --red:#c1443c;
+    --red-deep:#8f2f29;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% -10%, #1a3324 0%, var(--bg-night) 55%);
+    color:var(--chalk);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .app{
+    max-width:640px;
+    margin:0 auto;
+    padding:28px 18px 60px;
+  }
+
+  /* ---------- Header ---------- */
+  .masthead{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:22px;
+    border-bottom:2px solid var(--line);
+    padding-bottom:14px;
+  }
+  .masthead h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:42px;
+    letter-spacing:1px;
+    margin:0;
+    line-height:0.9;
+    color:var(--chalk);
+  }
+  .masthead h1 span{color:var(--amber);}
+  .masthead .tagline{
+    font-size:12px;
+    color:var(--muted);
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    text-align:right;
+  }
+
+  /* ---------- Account bar ---------- */
+  .account-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    padding:10px 14px;
+    margin-bottom:20px;
+    font-size:12px;
+  }
+  .account-bar .who{color:var(--muted);}
+  .account-bar .who b{color:var(--chalk);font-weight:700;}
+  .account-bar button{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .account-bar button:hover{border-color:var(--red);color:var(--red);}
+
+  /* ---------- Scoreboard match info ---------- */
+  .scoreboard{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    padding:18px 20px;
+    margin-bottom:24px;
+    position:relative;
+  }
+  .scoreboard-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+  }
+  .field-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    color:var(--muted);
+    font-weight:700;
+    margin-bottom:6px;
+    display:block;
+  }
+  .field-value{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:24px;
+    color:var(--amber);
+    letter-spacing:0.5px;
+    cursor:text;
+    border-bottom:1px dashed transparent;
+    word-break:break-word;
+  }
+  .field-value:hover{border-bottom-color:var(--muted);}
+  .scoreboard input{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:2px solid var(--amber);
+    color:var(--amber);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:24px;
+    letter-spacing:0.5px;
+    padding:2px 0;
+    outline:none;
+  }
+  .edit-hint{
+    position:absolute;
+    top:14px;
+    right:16px;
+    font-size:10px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+
+  /* ---------- Add player ---------- */
+  .add-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:20px;
+  }
+  .add-row input{
+    flex:1;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:12px 14px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .add-row input:focus{border-color:var(--turf-bright);}
+  .add-row button{
+    background:var(--turf-bright);
+    color:#08130c;
+    border:none;
+    padding:0 20px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  .add-row button:hover{background:var(--amber);}
+
+  /* ---------- Roster ---------- */
+  .section-title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:20px;
+    letter-spacing:1px;
+    color:var(--chalk);
+    margin:0 0 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .section-title .count{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:600;
+  }
+
+  .roster{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .player-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .player-name{
+    flex:1;
+    font-size:15px;
+    font-weight:600;
+    color:var(--chalk);
+  }
+  .group-tag{
+    font-size:11px;
+    font-weight:800;
+    padding:3px 8px;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    user-select:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    min-width:20px;
+    text-align:center;
+  }
+  .group-tag.A{border-color:var(--amber);color:var(--amber);}
+  .group-tag.B{border-color:var(--turf-bright);color:var(--turf-bright);}
+
+  .toggle-pair{display:flex;gap:6px;}
+  .toggle-btn{
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    padding:6px 12px;
+    cursor:pointer;
+    transition:all .12s ease;
+  }
+  .toggle-btn.yes.active{background:var(--turf-bright);border-color:var(--turf-bright);color:#08130c;}
+  .toggle-btn.no.active{background:var(--red);border-color:var(--red);color:#1c0a08;}
+  .toggle-btn:hover{border-color:var(--chalk);}
+
+  .remove-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:16px;
+    cursor:pointer;
+    padding:2px 4px;
+    line-height:1;
+  }
+  .remove-btn:hover{color:var(--red);}
+
+  .empty-note{
+    color:var(--muted);
+    font-size:13px;
+    padding:16px 0;
+    font-style:italic;
+  }
+
+  /* ---------- Groups ---------- */
+  .groups-wrap{margin-bottom:30px;}
+  .groups-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .bib{
+    border:1px solid var(--line);
+    padding:14px;
+  }
+  .bib.A{border-top:3px solid var(--amber);}
+  .bib.B{border-top:3px solid var(--turf-bright);}
+  .bib h3{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:18px;
+    letter-spacing:1px;
+    margin:0 0 10px;
+  }
+  .bib.A h3{color:var(--amber);}
+  .bib.B h3{color:var(--turf-bright);}
+  .bib ul{list-style:none;margin:0;padding:0;}
+  .bib li{
+    font-size:14px;
+    padding:6px 0;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .bib li:last-child{border-bottom:none;}
+  .swap-btn{
+    background:none;border:none;color:var(--muted);
+    font-size:11px;cursor:pointer;text-decoration:underline;
+  }
+  .swap-btn:hover{color:var(--chalk);}
+
+  /* ---------- Footer actions ---------- */
+  .actions{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    align-items:flex-start;
+    border-top:2px solid var(--line);
+    padding-top:20px;
+  }
+  .download-btn{
+    background:var(--amber);
+    color:#221200;
+    border:none;
+    padding:13px 22px;
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .download-btn:hover{background:#ffb745;}
+  .actions .note{font-size:12px;color:var(--muted);}
+
+  .status-msg{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:4px;
+    min-height:14px;
+  }
+
+  /* ---------- Auth screen ---------- */
+  .auth-wrap{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .auth-card{
+    width:100%;
+    max-width:360px;
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    padding:28px 26px;
+  }
+  .auth-card h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:36px;
+    letter-spacing:1px;
+    margin:0 0 2px;
+    text-align:center;
+  }
+  .auth-card .sub{
+    text-align:center;
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-weight:600;
+    margin-bottom:22px;
+  }
+  .auth-tabs{
+    display:flex;
+    border-bottom:1px solid var(--line);
+    margin-bottom:20px;
+  }
+  .auth-tab{
+    flex:1;
+    text-align:center;
+    padding:10px 0;
+    font-size:12px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    background:none;
+    border-top:none;border-left:none;border-right:none;
+    font-family:'Inter',sans-serif;
+  }
+  .auth-tab.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .auth-field input{
+    width:100%;
+    background:var(--bg-night);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:11px 12px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .auth-field input:focus{border-color:var(--turf-bright);}
+  .auth-submit{
+    width:100%;
+    background:var(--turf-bright);
+    color:#08130c;
+    border:none;
+    padding:12px 0;
+    font-weight:800;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .auth-submit:hover{background:var(--amber);}
+  .auth-submit:disabled{opacity:0.5;cursor:default;}
+  .auth-msg{
+    font-size:12px;
+    margin-top:12px;
+    text-align:center;
+    min-height:16px;
+  }
+  .auth-msg.error{
+    color:var(--chalk);
+    background:var(--red-deep);
+    border:1px solid var(--red);
+    padding:10px 12px;
+    line-height:1.4;
+  }
+  .auth-msg.ok{
+    color:var(--chalk);
+    background:#173a24;
+    border:1px solid var(--turf-bright);
+    padding:10px 12px;
+    line-height:1.4;
+  }
+  .config-warning{
+    background:var(--red-deep);
+    color:var(--chalk);
+    font-size:12px;
+    padding:12px 14px;
+    margin-bottom:18px;
+    line-height:1.5;
+  }
+  .config-warning code{
+    background:rgba(0,0,0,0.3);
+    padding:1px 5px;
+  }
+
+  /* ---------- Print / PDF view ---------- */
+  #printable{display:none;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #printable, #printable *{visibility:visible;}
+    #printable{
+      display:block;
+      position:absolute;
+      top:0;left:0;
+      width:100%;
+      background:#fff;
+      color:#000;
+      padding:20px;
+    }
+    #printable h1{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:30px;
+      margin:0 0 4px;
+    }
+    #printable .meta{font-size:13px;margin-bottom:16px;color:#333;}
+    #printable .cols{display:flex;gap:30px;}
+    #printable .col{flex:1;}
+    #printable .col h2{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:18px;
+      border-bottom:2px solid #000;
+      padding-bottom:4px;
+      margin-bottom:8px;
+    }
+    #printable ol{padding-left:18px;margin:0;}
+    #printable li{padding:3px 0;font-size:14px;}
+  }
+
+  @media (max-width:420px){
+    .masthead h1{font-size:34px;}
+    .scoreboard-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div class="auth-wrap" id="authWrap">
+  <div class="auth-card">
+    <h1>FUTSAL</h1>
+    <div class="sub">Squad Attendance</div>
+
+    <div id="configWarning" class="config-warning" style="display:none">
+      This app needs a Supabase project connected before login will work.
+      Open <code>index.html</code> and set <code>SUPABASE_URL</code> and
+      <code>SUPABASE_ANON_KEY</code> near the top of the script — see the
+      README for setup steps.
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="setAuthMode('login')">Log In</button>
+      <button class="auth-tab" id="tabSignup" onclick="setAuthMode('signup')">Create Account</button>
+    </div>
+
+    <form id="authForm" onsubmit="handleAuthSubmit(event)">
+      <div class="auth-field">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" autocomplete="current-password" required minlength="6">
+      </div>
+      <button type="submit" class="auth-submit" id="authSubmitBtn">Log In</button>
+      <div class="auth-msg" id="authMsg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="app" id="appRoot" style="display:none">
+
+  <div class="masthead">
+    <h1>FUTSAL</h1>
+    <div class="tagline">Squad<br>Attendance</div>
+  </div>
+
+  <div class="account-bar">
+    <span class="who">Signed in as <b id="whoEmail"></b></span>
+    <button onclick="handleLogout()">Log out</button>
+  </div>
+
+  <div class="scoreboard">
+    <span class="edit-hint">tap to edit</span>
+    <div class="scoreboard-grid">
+      <div>
+        <span class="field-label">Venue</span>
+        <div class="field-value" id="venueDisplay" onclick="startEdit('venue')"></div>
+        <input type="text" id="venueInput" style="display:none" onblur="finishEdit('venue')" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+      <div>
+        <span class="field-label">Date &amp; Kick-off</span>
+        <div class="field-value" id="timeDisplay" onclick="startEdit('time')"></div>
+        <input type="text" id="timeInput" style="display:none" placeholder="e.g. Fri 12 Sep, 7:00 PM" onblur="finishEdit('time')" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+    </div>
+  </div>
+
+  <div class="add-row">
+    <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
+    <button onclick="addPlayer()">Add</button>
+  </div>
+
+  <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
+  <div class="roster" id="rosterList"></div>
+
+  <div class="groups-wrap" id="groupsWrap" style="display:none">
+    <div class="section-title">Teams — Confirmed Players</div>
+    <div class="groups-grid">
+      <div class="bib A">
+        <h3>Group A</h3>
+        <ul id="groupAList"></ul>
+      </div>
+      <div class="bib B">
+        <h3>Group B</h3>
+        <ul id="groupBList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
+    <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
+    <span class="note">Roster is shared and synced live for everyone signed in to this app.</span>
+    <span class="status-msg" id="statusMsg"></span>
+  </div>
+
+</div>
+
+<!-- Printable summary, only shown to the print engine -->
+<div id="printable">
+  <h1>Futsal — Attendance</h1>
+  <div class="meta" id="printMeta"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Group A</h2>
+      <ol id="printA"></ol>
+    </div>
+    <div class="col">
+      <h2>Group B</h2>
+      <ol id="printB"></ol>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   SUPABASE CONFIG — replace with your own project's values.
+   Find these in Supabase: Project Settings → API.
+   ========================================================= */
+const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';
+
+const isConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+let supabaseClient = null;
+if(isConfigured){
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('configWarning').style.display = 'block';
+    document.getElementById('authSubmitBtn').disabled = true;
+  });
+}
+
+const STATE_ROW_ID = 'main';
+let state = {
+  venue: 'Central Futsal Arena',
+  time: 'Fri, 7:00 PM',
+  players: [] // {id, name, attend: 'yes'|'no'|null, group: 'A'|'B'|null}
+};
+let loaded = false;
+let currentUser = null;
+let realtimeChannel = null;
+
+function uid(){ return 'p' + Date.now() + Math.floor(Math.random()*1000); }
+
+/* ---------- Auth ---------- */
+let authMode = 'login';
+function setAuthMode(mode, clearMsg){
+  if(clearMsg === undefined) clearMsg = true;
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'Log In' : 'Create Account';
+  if(clearMsg){
+    document.getElementById('authMsg').textContent = '';
+    document.getElementById('authMsg').className = 'auth-msg';
+  }
+}
+
+async function handleAuthSubmit(e){
+  e.preventDefault();
+  if(!isConfigured) return;
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const msgEl = document.getElementById('authMsg');
+  const btn = document.getElementById('authSubmitBtn');
+  msgEl.textContent = '';
+  msgEl.className = 'auth-msg';
+  btn.disabled = true;
+
+  try{
+    if(authMode === 'signup'){
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if(error) throw error;
+      if(data.session){
+        // email confirmation disabled — logged in immediately
+      } else {
+        msgEl.textContent = 'Account created — check your email to confirm, then log in.';
+        msgEl.className = 'auth-msg ok';
+        setAuthMode('login', false);
+      }
+    } else {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+    }
+  }catch(err){
+    msgEl.textContent = err.message || 'Something went wrong.';
+    msgEl.className = 'auth-msg error';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function handleLogout(){
+  if(!isConfigured) return;
+  if(realtimeChannel){ supabaseClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+  await supabaseClient.auth.signOut();
+}
+
+function showAuthScreen(){
+  document.getElementById('authWrap').style.display = 'flex';
+  document.getElementById('appRoot').style.display = 'none';
+}
+
+function showApp(user){
+  currentUser = user;
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'block';
+  document.getElementById('whoEmail').textContent = user.email;
+  loadState();
+  subscribeRealtime();
+}
+
+if(isConfigured){
+  supabaseClient.auth.getSession().then(({ data }) => {
+    if(data.session){ showApp(data.session.user); } else { showAuthScreen(); }
+  });
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if(session){ showApp(session.user); }
+    else { showAuthScreen(); loaded = false; }
+  });
+} else {
+  showAuthScreen();
+}
+
+/* ---------- Shared state: load / save via Supabase ---------- */
+async function loadState(){
+  try{
+    const { data, error } = await supabaseClient
+      .from('futsal_state')
+      .select('*')
+      .eq('id', STATE_ROW_ID)
+      .maybeSingle();
+    if(error) throw error;
+    if(data){
+      state.venue = data.venue ?? state.venue;
+      state.time = data.match_time ?? state.time;
+      state.players = data.players ?? [];
+    } else {
+      // no row yet — create the shared row with current defaults
+      await supabaseClient.from('futsal_state').insert({
+        id: STATE_ROW_ID, venue: state.venue, match_time: state.time, players: state.players
+      });
+    }
+  }catch(e){
+    setStatus('Could not load shared roster — check Supabase setup');
+  }
+  loaded = true;
+  render();
+}
+
+let saveTimer = null;
+function saveState(msg){
+  if(!isConfigured) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try{
+      const { error } = await supabaseClient.from('futsal_state').upsert({
+        id: STATE_ROW_ID,
+        venue: state.venue,
+        match_time: state.time,
+        players: state.players,
+        updated_at: new Date().toISOString()
+      });
+      if(error) throw error;
+      setStatus(msg || 'Saved');
+    }catch(e){
+      setStatus('Could not save — changes may not persist');
+    }
+  }, 250);
+}
+
+/* live sync: pick up changes made by other signed-in players */
+function subscribeRealtime(){
+  if(!isConfigured || realtimeChannel) return;
+  realtimeChannel = supabaseClient
+    .channel('futsal_state_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'futsal_state', filter: `id=eq.${STATE_ROW_ID}` }, (payload) => {
+      if(payload.new){
+        state.venue = payload.new.venue ?? state.venue;
+        state.time = payload.new.match_time ?? state.time;
+        state.players = payload.new.players ?? state.players;
+        render();
+      }
+    })
+    .subscribe();
+}
+
+function setStatus(msg){
+  const el = document.getElementById('statusMsg');
+  if(!el) return;
+  el.textContent = msg;
+  setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
+}
+
+/* ---------- Editable fields ---------- */
+function startEdit(field){
+  const display = document.getElementById(field+'Display');
+  const input = document.getElementById(field+'Input');
+  input.value = state[field];
+  display.style.display = 'none';
+  input.style.display = 'block';
+  input.focus();
+  input.select();
+}
+function finishEdit(field){
+  const input = document.getElementById(field+'Input');
+  const val = input.value.trim();
+  if(val) state[field] = val;
+  input.style.display = 'none';
+  document.getElementById(field+'Display').style.display = 'block';
+  render();
+  saveState('Match info saved');
+}
+
+/* ---------- Players ---------- */
+function addPlayer(){
+  const input = document.getElementById('newPlayerInput');
+  const name = input.value.trim();
+  if(!name) return;
+  state.players.push({id: uid(), name, attend: null, group: null});
+  input.value = '';
+  render();
+  saveState('Player added');
+}
+
+function setAttend(id, val){
+  const p = state.players.find(p=>p.id===id);
+  if(!p) return;
+  p.attend = (p.attend === val) ? null : val;
+  if(p.attend !== 'yes') p.group = null;
+  reassignGroups();
+  render();
+  saveState();
+}
+
+function removePlayer(id){
+  state.players = state.players.filter(p=>p.id!==id);
+  reassignGroups();
+  render();
+  saveState('Player removed');
+}
+
+function swapGroup(id){
+  const p = state.players.find(p=>p.id===id);
+  if(!p) return;
+  p.group = p.group === 'A' ? 'B' : 'A';
+  render();
+  saveState();
+}
+
+/* auto-balance groups among everyone marked 'yes', preserving manual swaps where possible */
+function reassignGroups(){
+  const yesPlayers = state.players.filter(p=>p.attend==='yes');
+  let countA = yesPlayers.filter(p=>p.group==='A').length;
+  let countB = yesPlayers.filter(p=>p.group==='B').length;
+  yesPlayers.forEach(p=>{
+    if(p.group !== 'A' && p.group !== 'B'){
+      if(countA <= countB){ p.group='A'; countA++; } else { p.group='B'; countB++; }
+    }
+  });
+}
+
+/* ---------- Render ---------- */
+function render(){
+  if(!loaded) return;
+
+  document.getElementById('venueDisplay').textContent = state.venue;
+  document.getElementById('timeDisplay').textContent = state.time;
+
+  const rosterList = document.getElementById('rosterList');
+  rosterList.innerHTML = '';
+  document.getElementById('rosterCount').textContent = state.players.length ? `(${state.players.length})` : '';
+
+  if(state.players.length === 0){
+    rosterList.innerHTML = '<div class="empty-note">No players yet — add your squad above.</div>';
+  }
+
+  state.players.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'player-row';
+
+    const groupTag = document.createElement('span');
+    groupTag.className = 'group-tag' + (p.group ? ' '+p.group : '');
+    groupTag.textContent = p.group || '·';
+    if(p.group){
+      groupTag.title = 'Tap to swap group';
+      groupTag.onclick = ()=>swapGroup(p.id);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'player-name';
+    name.textContent = p.name;
+
+    const toggles = document.createElement('div');
+    toggles.className = 'toggle-pair';
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'toggle-btn yes' + (p.attend==='yes' ? ' active' : '');
+    yesBtn.textContent = 'YES';
+    yesBtn.onclick = ()=>setAttend(p.id,'yes');
+    const noBtn = document.createElement('button');
+    noBtn.className = 'toggle-btn no' + (p.attend==='no' ? ' active' : '');
+    noBtn.textContent = 'NO';
+    noBtn.onclick = ()=>setAttend(p.id,'no');
+    toggles.appendChild(yesBtn);
+    toggles.appendChild(noBtn);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-btn';
+    removeBtn.textContent = '✕';
+    removeBtn.title = 'Remove player';
+    removeBtn.onclick = ()=>removePlayer(p.id);
+
+    row.appendChild(groupTag);
+    row.appendChild(name);
+    row.appendChild(toggles);
+    row.appendChild(removeBtn);
+    rosterList.appendChild(row);
+  });
+
+  // Groups section
+  const yesPlayers = state.players.filter(p=>p.attend==='yes');
+  const groupsWrap = document.getElementById('groupsWrap');
+  if(yesPlayers.length === 0){
+    groupsWrap.style.display = 'none';
+  } else {
+    groupsWrap.style.display = 'block';
+    const aList = document.getElementById('groupAList');
+    const bList = document.getElementById('groupBList');
+    aList.innerHTML = '';
+    bList.innerHTML = '';
+    yesPlayers.filter(p=>p.group==='A').forEach(p=>{
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='move →';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
+      aList.appendChild(li);
+    });
+    yesPlayers.filter(p=>p.group==='B').forEach(p=>{
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='← move';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
+      bList.appendChild(li);
+    });
+  }
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ---------- PDF (print) ---------- */
+function downloadPDF(){
+  const yesPlayers = state.players.filter(p=>p.attend==='yes');
+  document.getElementById('printMeta').textContent =
+    `Venue: ${state.venue}   •   Date & Kick-off: ${state.time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
+  const printA = document.getElementById('printA');
+  const printB = document.getElementById('printB');
+  printA.innerHTML = '';
+  printB.innerHTML = '';
+  yesPlayers.filter(p=>p.group==='A').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.name; printA.appendChild(li);
+  });
+  yesPlayers.filter(p=>p.group==='B').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.name; printB.appendChild(li);
+  });
+  window.print();
+}
+</script>
+
+</body>
+</html>

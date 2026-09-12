@@ -295,6 +295,18 @@
   }
   .download-btn:hover{background:#ffb745;}
   .actions .note{font-size:12px;color:var(--muted);}
+  .reset-btn{
+    background:none;
+    border:1px solid var(--red);
+    color:var(--red);
+    padding:9px 16px;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .reset-btn:hover{background:var(--red);color:var(--chalk);}
 
   .status-msg{
     font-size:12px;
@@ -468,6 +480,7 @@
   body.role-viewer .field-value{cursor:default;}
   body.role-viewer .field-value:hover{border-bottom-color:transparent;}
   body.role-viewer .group-tag{cursor:default;}
+  body.role-viewer .admin-only{display:none;}
 </style>
 </head>
 <body>
@@ -576,8 +589,9 @@
 
   <div class="actions">
     <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
+    <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
-    <span class="note">Data is saved in this browser only — it won't sync across different players' devices.</span>
+    <span class="note">Changes sync live — everyone signed in sees the same roster in real time.</span>
     <span class="status-msg" id="statusMsg"></span>
   </div>
 
@@ -679,11 +693,22 @@ async function handleLogout(){
 const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
 let isAdmin = false;
 
-function showApp(user){
+/* ---------- Shared, realtime app state (Supabase) ---------- */
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM' };
+let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
+let myUserId = null;
+let myPlayerId = null;
+let loaded = false;
+let realtimeChannel = null;
+
+const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
+
+async function showApp(user){
   document.getElementById('authWrap').style.display = 'none';
   document.getElementById('appWrap').style.display = 'block';
   const email = (user?.email || '').toLowerCase();
   isAdmin = email === ADMIN_EMAIL;
+  myUserId = user.id;
   const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
   const whoAmI = document.getElementById('whoAmI');
   whoAmI.textContent = displayName;
@@ -697,13 +722,21 @@ function showApp(user){
   }
   document.body.classList.toggle('role-admin', isAdmin);
   document.body.classList.toggle('role-viewer', !isAdmin);
-  if(!loaded){ loadState(); } else { render(); }
+
+  await ensureMyPlayerRow(displayName);
+  await loadAllData();
+  subscribeRealtime();
 }
 
 function showAuthScreen(){
   document.getElementById('appWrap').style.display = 'none';
   document.getElementById('authWrap').style.display = 'block';
   showLogin();
+  if(realtimeChannel){ sbClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+  loaded = false;
+  players = [];
+  myPlayerId = null;
+  myUserId = null;
 }
 
 sbClient.auth.onAuthStateChange((_event, session) => {
@@ -714,42 +747,36 @@ sbClient.auth.onAuthStateChange((_event, session) => {
   }
 });
 
-/* ---------- Attendance app state (unchanged, per-browser storage) ---------- */
-const STORAGE_KEY = 'futsal:state';
-let state = {
-  venue: 'Central Futsal Arena',
-  time: 'Fri, 7:00 PM',
-  players: [] // {id, name, attend: 'yes'|'no'|null, group: 'A'|'B'|null}
-};
-let loaded = false;
+/* ensure the signed-in user has their own row in the shared roster */
+async function ensureMyPlayerRow(displayName){
+  const { data: existing } = await sbClient.from('players').select('id').eq('user_id', myUserId).maybeSingle();
+  if(existing){ myPlayerId = existing.id; return; }
+  const { data, error } = await sbClient.from('players')
+    .insert({ user_id: myUserId, display_name: displayName, attend: null, group_name: null })
+    .select('id')
+    .single();
+  if(!error && data) myPlayerId = data.id;
+}
 
-function uid(){ return 'p' + Date.now() + Math.floor(Math.random()*1000); }
-
-function loadState(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      state = Object.assign(state, parsed);
-    }
-  }catch(e){
-    // no existing state yet, or storage unavailable — keep defaults
-  }
+async function loadAllData(){
+  const [matchResult, playersResult] = await Promise.all([
+    sbClient.from('match_info').select('*').eq('id', 1).single(),
+    sbClient.from('players').select('*').order('created_at', { ascending: true })
+  ]);
+  if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
+  if(!playersResult.error) players = playersResult.data || [];
+  const mine = players.find(p => p.user_id === myUserId);
+  myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
   render();
 }
 
-let saveTimer = null;
-function saveState(msg){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setStatus(msg || 'Saved');
-    }catch(e){
-      setStatus('Could not save — changes may not persist');
-    }
-  }, 250);
+function subscribeRealtime(){
+  if(realtimeChannel) return;
+  realtimeChannel = sbClient.channel('futsal-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, () => loadAllData())
+    .subscribe();
 }
 
 function setStatus(msg){
@@ -758,120 +785,144 @@ function setStatus(msg){
   setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
 }
 
-/* ---------- Editable fields ---------- */
+/* ---------- Editable match info (admin only) ---------- */
 function startEdit(field){
   if(!isAdmin) return;
   const display = document.getElementById(field+'Display');
   const input = document.getElementById(field+'Input');
-  input.value = state[field];
+  input.value = field === 'venue' ? matchInfo.venue : matchInfo.kickoff_time;
   display.style.display = 'none';
   input.style.display = 'block';
   input.focus();
   input.select();
 }
-function finishEdit(field){
+async function finishEdit(field){
   const input = document.getElementById(field+'Input');
   const val = input.value.trim();
-  if(val) state[field] = val;
   input.style.display = 'none';
   document.getElementById(field+'Display').style.display = 'block';
+  if(!isAdmin || !val){ render(); return; }
+  const column = FIELD_TO_COLUMN[field];
+  matchInfo[column] = val; // optimistic
   render();
-  saveState('Match info saved');
+  const { error } = await sbClient.from('match_info').update({ [column]: val }).eq('id', 1);
+  setStatus(error ? 'Could not save — try again' : 'Match info saved');
 }
 
 /* ---------- Players ---------- */
-function addPlayer(){
+/* Admin: add guest players, remove anyone, move anyone between groups.
+   Everyone else: mark only their own attendance; group is auto-assigned. */
+async function addPlayer(){
   if(!isAdmin) return;
   const input = document.getElementById('newPlayerInput');
   const name = input.value.trim();
   if(!name) return;
-  state.players.push({id: uid(), name, attend: null, group: null});
   input.value = '';
-  render();
-  saveState('Player added');
+  const { error } = await sbClient.from('players').insert({ display_name: name, attend: null, group_name: null });
+  setStatus(error ? 'Could not add player' : 'Player added');
 }
 
-function setAttend(id, val){
-  const p = state.players.find(p=>p.id===id);
+async function setAttend(id, val){
+  const p = players.find(p=>p.id===id);
   if(!p) return;
-  p.attend = (p.attend === val) ? null : val;
-  if(p.attend !== 'yes') p.group = null;
-  reassignGroups();
+  if(!isAdmin && id !== myPlayerId) return; // everyone else can only mark themselves
+  const newAttend = (p.attend === val) ? null : val;
+  const patch = { attend: newAttend };
+  if(newAttend !== 'yes') patch.group_name = null;
+
+  // optimistic local update so the UI feels instant
+  p.attend = newAttend;
+  if(newAttend !== 'yes') p.group_name = null;
   render();
-  saveState();
+
+  const { error } = await sbClient.from('players').update(patch).eq('id', id);
+  if(error){ setStatus('Could not save — try again'); return; }
+  if(newAttend === 'yes' && !p.group_name){
+    await autoAssignGroup(id);
+  }
 }
 
-function removePlayer(id){
-  if(!isAdmin) return;
-  state.players = state.players.filter(p=>p.id!==id);
-  reassignGroups();
+async function autoAssignGroup(id){
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  const countA = yesPlayers.filter(p=>p.group_name==='A').length;
+  const countB = yesPlayers.filter(p=>p.group_name==='B').length;
+  const group = countA <= countB ? 'A' : 'B';
+  const p = players.find(p=>p.id===id);
+  if(p) p.group_name = group;
   render();
-  saveState('Player removed');
+  await sbClient.from('players').update({ group_name: group }).eq('id', id);
 }
 
-function swapGroup(id){
+async function removePlayer(id){
   if(!isAdmin) return;
-  const p = state.players.find(p=>p.id===id);
+  const { error } = await sbClient.from('players').delete().eq('id', id);
+  setStatus(error ? 'Could not remove player' : 'Player removed');
+}
+
+async function swapGroup(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
   if(!p) return;
-  p.group = p.group === 'A' ? 'B' : 'A';
+  const newGroup = p.group_name === 'A' ? 'B' : 'A';
+  p.group_name = newGroup;
   render();
-  saveState();
+  const { error } = await sbClient.from('players').update({ group_name: newGroup }).eq('id', id);
+  if(error) setStatus('Could not move player');
 }
 
-/* auto-balance groups among everyone marked 'yes', preserving manual swaps where possible */
-function reassignGroups(){
-  const yesPlayers = state.players.filter(p=>p.attend==='yes');
-  // keep existing group assignment if present, else assign alternating to balance
-  let countA = yesPlayers.filter(p=>p.group==='A').length;
-  let countB = yesPlayers.filter(p=>p.group==='B').length;
-  yesPlayers.forEach(p=>{
-    if(p.group !== 'A' && p.group !== 'B'){
-      if(countA <= countB){ p.group='A'; countA++; } else { p.group='B'; countB++; }
-    }
-  });
+async function resetPlayers(){
+  if(!isAdmin) return;
+  if(!confirm('Reset attendance for every player? Everyone goes back to unmarked with no group. The roster names stay.')) return;
+  players.forEach(p => { p.attend = null; p.group_name = null; });
+  render();
+  const { error } = await sbClient.from('players')
+    .update({ attend: null, group_name: null })
+    .not('id', 'is', null);
+  setStatus(error ? 'Could not reset players' : 'Players reset');
 }
 
 /* ---------- Render ---------- */
 function render(){
   if(!loaded) return;
 
-  document.getElementById('venueDisplay').textContent = state.venue;
-  document.getElementById('timeDisplay').textContent = state.time;
+  document.getElementById('venueDisplay').textContent = matchInfo.venue;
+  document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
 
   const rosterList = document.getElementById('rosterList');
   rosterList.innerHTML = '';
-  document.getElementById('rosterCount').textContent = state.players.length ? `(${state.players.length})` : '';
+  document.getElementById('rosterCount').textContent = players.length ? `(${players.length})` : '';
 
-  if(state.players.length === 0){
-    rosterList.innerHTML = '<div class="empty-note">No players yet — add your squad above.</div>';
+  if(players.length === 0){
+    rosterList.innerHTML = '<div class="empty-note">No players yet.</div>';
   }
 
-  state.players.forEach(p=>{
+  players.forEach(p=>{
     const row = document.createElement('div');
     row.className = 'player-row';
 
     const groupTag = document.createElement('span');
-    groupTag.className = 'group-tag' + (p.group ? ' '+p.group : '');
-    groupTag.textContent = p.group || '·';
-    if(p.group && isAdmin){
+    groupTag.className = 'group-tag' + (p.group_name ? ' '+p.group_name : '');
+    groupTag.textContent = p.group_name || '·';
+    if(p.group_name && isAdmin){
       groupTag.title = 'Tap to swap group';
       groupTag.onclick = ()=>swapGroup(p.id);
     }
 
     const name = document.createElement('span');
     name.className = 'player-name';
-    name.textContent = p.name;
+    name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
 
     const toggles = document.createElement('div');
     toggles.className = 'toggle-pair';
+    const canToggle = isAdmin || p.id === myPlayerId;
     const yesBtn = document.createElement('button');
     yesBtn.className = 'toggle-btn yes' + (p.attend==='yes' ? ' active' : '');
     yesBtn.textContent = 'YES';
-    yesBtn.onclick = ()=>setAttend(p.id,'yes');
+    if(canToggle) yesBtn.onclick = ()=>setAttend(p.id,'yes'); else yesBtn.disabled = true;
     const noBtn = document.createElement('button');
     noBtn.className = 'toggle-btn no' + (p.attend==='no' ? ' active' : '');
     noBtn.textContent = 'NO';
-    noBtn.onclick = ()=>setAttend(p.id,'no');
+    if(canToggle) noBtn.onclick = ()=>setAttend(p.id,'no'); else noBtn.disabled = true;
     toggles.appendChild(yesBtn);
     toggles.appendChild(noBtn);
 
@@ -891,7 +942,7 @@ function render(){
   });
 
   // Groups section
-  const yesPlayers = state.players.filter(p=>p.attend==='yes');
+  const yesPlayers = players.filter(p=>p.attend==='yes');
   const groupsWrap = document.getElementById('groupsWrap');
   if(yesPlayers.length === 0){
     groupsWrap.style.display = 'none';
@@ -901,9 +952,9 @@ function render(){
     const bList = document.getElementById('groupBList');
     aList.innerHTML = '';
     bList.innerHTML = '';
-    yesPlayers.filter(p=>p.group==='A').forEach(p=>{
+    yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
       const li = document.createElement('li');
-      li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
+      li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
       if(isAdmin){
         const swap = document.createElement('button');
         swap.className='swap-btn'; swap.textContent='move →';
@@ -912,9 +963,9 @@ function render(){
       }
       aList.appendChild(li);
     });
-    yesPlayers.filter(p=>p.group==='B').forEach(p=>{
+    yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
       const li = document.createElement('li');
-      li.innerHTML = `<span>${escapeHtml(p.name)}</span>`;
+      li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
       if(isAdmin){
         const swap = document.createElement('button');
         swap.className='swap-btn'; swap.textContent='← move';
@@ -934,18 +985,18 @@ function escapeHtml(str){
 
 /* ---------- PDF (print) ---------- */
 function downloadPDF(){
-  const yesPlayers = state.players.filter(p=>p.attend==='yes');
+  const yesPlayers = players.filter(p=>p.attend==='yes');
   document.getElementById('printMeta').textContent =
-    `Venue: ${state.venue}   •   Date & Kick-off: ${state.time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
+    `Venue: ${matchInfo.venue}   •   Date & Kick-off: ${matchInfo.kickoff_time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
   const printA = document.getElementById('printA');
   const printB = document.getElementById('printB');
   printA.innerHTML = '';
   printB.innerHTML = '';
-  yesPlayers.filter(p=>p.group==='A').forEach(p=>{
-    const li = document.createElement('li'); li.textContent = p.name; printA.appendChild(li);
+  yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.display_name; printA.appendChild(li);
   });
-  yesPlayers.filter(p=>p.group==='B').forEach(p=>{
-    const li = document.createElement('li'); li.textContent = p.name; printB.appendChild(li);
+  yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.display_name; printB.appendChild(li);
   });
   window.print();
 }

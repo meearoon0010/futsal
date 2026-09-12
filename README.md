@@ -72,3 +72,38 @@ Attendance data itself is still saved to `localStorage`, per browser — only
 login/signup go through Supabase for now. Let me know if you'd like the
 roster synced live across everyone's devices next.
 
+## Roles
+
+- **Admin** (`whitewalkerofnorth@gmail.com`, shown as "ARUN"): can edit venue/time, add guest players, remove any player, move any player between Group A/B, and reset attendance for everyone.
+- **Everyone else**: automatically appears in the roster under their own signed-in display name, can mark only their own YES/NO, and can view the roster, groups, and download the attendance PDF — they cannot edit match info, add/remove players, or move anyone between groups.
+
+Roles are determined by the logged-in email matching the admin address above, and enforced both in the UI and at the database level via Row Level Security (see the setup section below) — so the restriction holds even if someone bypasses the UI.
+
+## Real-time shared roster (Supabase database)
+
+Attendance, the roster, and match info now live in Supabase (Postgres +
+Realtime) instead of `localStorage` — everyone signed in sees admin's
+changes appear instantly, no refresh needed.
+
+**One-time setup:** open your Supabase project's **SQL Editor** and run
+`supabase-setup.sql` (included alongside this file). It creates two tables:
+
+- `match_info` — a single row with `venue` and `kickoff_time`
+- `players` — one row per player (a signed-in user or an admin-added guest),
+  with `display_name`, `attend`, and `group_name`
+
+It also sets up Row Level Security so that, even outside the app's UI, only
+the admin account can edit match info, add/remove players, or move players
+between groups — everyone else can only edit their own attendance. Realtime
+broadcasting is enabled for both tables so every connected browser gets
+live updates.
+
+**How players show up:** when anyone logs in, they automatically get their
+own row in the roster using their signed-in display name — there's no
+separate "add yourself" step. The admin can additionally add guest players
+who don't have an account.
+
+**Reset button:** the admin has a "Reset all attendance" button that clears
+everyone's YES/NO and group assignment (for starting a new match) without
+deleting anyone from the roster.
+

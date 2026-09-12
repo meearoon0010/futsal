@@ -107,3 +107,13 @@ who don't have an account.
 everyone's YES/NO and group assignment (for starting a new match) without
 deleting anyone from the roster.
 
+## Adding a player straight into a group
+
+Next to "Add player name," the admin now has a group dropdown
+("No group yet" / "Group A" / "Group B"). Choosing a group and clicking
+"Add" marks that player YES and places them directly into that group —
+useful for guests the admin already knows are playing and knows which
+side they should be on. Leaving it as "No group yet" behaves as before:
+the player sits in the roster unassigned until someone marks them YES,
+at which point they're auto-balanced into whichever group is smaller.
+

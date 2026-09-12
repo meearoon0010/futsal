@@ -138,6 +138,16 @@
     outline:none;
   }
   .add-row input:focus{border-color:var(--turf-bright);}
+  .add-row select{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:0 10px;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .add-row select:focus{border-color:var(--turf-bright);}
   .add-row button{
     background:var(--turf-bright);
     color:#08130c;
@@ -567,6 +577,11 @@
 
   <div class="add-row">
     <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
+    <select id="newPlayerGroup" title="Assign to a group (optional)">
+      <option value="">No group yet</option>
+      <option value="A">Group A</option>
+      <option value="B">Group B</option>
+    </select>
     <button onclick="addPlayer()">Add</button>
   </div>
 
@@ -815,11 +830,18 @@ async function finishEdit(field){
 async function addPlayer(){
   if(!isAdmin) return;
   const input = document.getElementById('newPlayerInput');
+  const groupSelect = document.getElementById('newPlayerGroup');
   const name = input.value.trim();
   if(!name) return;
+  const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
   input.value = '';
-  const { error } = await sbClient.from('players').insert({ display_name: name, attend: null, group_name: null });
-  setStatus(error ? 'Could not add player' : 'Player added');
+  groupSelect.value = '';
+  const { error } = await sbClient.from('players').insert({
+    display_name: name,
+    attend: chosenGroup ? 'yes' : null,
+    group_name: chosenGroup
+  });
+  setStatus(error ? 'Could not add player' : (chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added'));
 }
 
 async function setAttend(id, val){

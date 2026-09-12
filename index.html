@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Futsal — Attendance</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -27,6 +28,7 @@
   html,body{
     margin:0;
     padding:0;
+    min-height:100vh;
     background:
       radial-gradient(ellipse at 50% -10%, #1a3324 0%, var(--bg-night) 55%);
     color:var(--chalk);
@@ -66,6 +68,32 @@
     letter-spacing:1.5px;
     text-align:right;
   }
+
+  /* ---------- Account bar ---------- */
+  .account-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    padding:10px 14px;
+    margin-bottom:20px;
+    font-size:12px;
+  }
+  .account-bar .who{color:var(--muted);}
+  .account-bar .who b{color:var(--chalk);font-weight:700;}
+  .account-bar button{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .account-bar button:hover{border-color:var(--red);color:var(--red);}
 
   /* ---------- Scoreboard match info ---------- */
   .scoreboard{
@@ -303,6 +331,115 @@
     min-height:14px;
   }
 
+  /* ---------- Auth screen ---------- */
+  .auth-wrap{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .auth-card{
+    width:100%;
+    max-width:360px;
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    padding:28px 26px;
+  }
+  .auth-card h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:36px;
+    letter-spacing:1px;
+    margin:0 0 2px;
+    text-align:center;
+  }
+  .auth-card .sub{
+    text-align:center;
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-weight:600;
+    margin-bottom:22px;
+  }
+  .auth-tabs{
+    display:flex;
+    border-bottom:1px solid var(--line);
+    margin-bottom:20px;
+  }
+  .auth-tab{
+    flex:1;
+    text-align:center;
+    padding:10px 0;
+    font-size:12px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    background:none;
+    border-top:none;border-left:none;border-right:none;
+    font-family:'Inter',sans-serif;
+  }
+  .auth-tab.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+    font-weight:700;
+    margin-bottom:6px;
+  }
+  .auth-field input{
+    width:100%;
+    background:var(--bg-night);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:11px 12px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .auth-field input:focus{border-color:var(--turf-bright);}
+  .auth-submit{
+    width:100%;
+    background:var(--turf-bright);
+    color:#08130c;
+    border:none;
+    padding:12px 0;
+    font-weight:800;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .auth-submit:hover{background:var(--amber);}
+  .auth-submit:disabled{opacity:0.5;cursor:default;}
+  .auth-msg{
+    font-size:12px;
+    margin-top:12px;
+    text-align:center;
+    min-height:16px;
+  }
+  .auth-msg.error{color:var(--red);}
+  .auth-msg.ok{color:var(--turf-bright);}
+  .config-warning{
+    background:var(--red-deep);
+    color:var(--chalk);
+    font-size:12px;
+    padding:12px 14px;
+    margin-bottom:18px;
+    line-height:1.5;
+  }
+  .config-warning code{
+    background:rgba(0,0,0,0.3);
+    padding:1px 5px;
+  }
+
   /* ---------- Print / PDF view ---------- */
   #printable{display:none;}
 
@@ -345,11 +482,50 @@
 </head>
 <body>
 
-<div class="app">
+<!-- ============ AUTH SCREEN ============ -->
+<div class="auth-wrap" id="authWrap">
+  <div class="auth-card">
+    <h1>FUTSAL</h1>
+    <div class="sub">Squad Attendance</div>
+
+    <div id="configWarning" class="config-warning" style="display:none">
+      This app needs a Supabase project connected before login will work.
+      Open <code>index.html</code> and set <code>SUPABASE_URL</code> and
+      <code>SUPABASE_ANON_KEY</code> near the top of the script — see the
+      README for setup steps.
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="setAuthMode('login')">Log In</button>
+      <button class="auth-tab" id="tabSignup" onclick="setAuthMode('signup')">Create Account</button>
+    </div>
+
+    <form id="authForm" onsubmit="handleAuthSubmit(event)">
+      <div class="auth-field">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" autocomplete="current-password" required minlength="6">
+      </div>
+      <button type="submit" class="auth-submit" id="authSubmitBtn">Log In</button>
+      <div class="auth-msg" id="authMsg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div class="app" id="appRoot" style="display:none">
 
   <div class="masthead">
     <h1>FUTSAL</h1>
     <div class="tagline">Squad<br>Attendance</div>
+  </div>
+
+  <div class="account-bar">
+    <span class="who">Signed in as <b id="whoEmail"></b></span>
+    <button onclick="handleLogout()">Log out</button>
   </div>
 
   <div class="scoreboard">
@@ -393,7 +569,7 @@
   <div class="actions">
     <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
-    <span class="note">Data is saved in this browser only — it won't sync across different players' devices.</span>
+    <span class="note">Roster is shared and synced live for everyone signed in to this app.</span>
     <span class="status-msg" id="statusMsg"></span>
   </div>
 
@@ -416,25 +592,134 @@
 </div>
 
 <script>
-const STORAGE_KEY = 'futsal:state';
+/* =========================================================
+   SUPABASE CONFIG — replace with your own project's values.
+   Find these in Supabase: Project Settings → API.
+   ========================================================= */
+const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';
+
+const isConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+let supabase = null;
+if(isConfigured){
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('configWarning').style.display = 'block';
+    document.getElementById('authSubmitBtn').disabled = true;
+  });
+}
+
+const STATE_ROW_ID = 'main';
 let state = {
   venue: 'Central Futsal Arena',
   time: 'Fri, 7:00 PM',
   players: [] // {id, name, attend: 'yes'|'no'|null, group: 'A'|'B'|null}
 };
 let loaded = false;
+let currentUser = null;
+let realtimeChannel = null;
 
 function uid(){ return 'p' + Date.now() + Math.floor(Math.random()*1000); }
 
-function loadState(){
+/* ---------- Auth ---------- */
+let authMode = 'login';
+function setAuthMode(mode){
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'Log In' : 'Create Account';
+  document.getElementById('authMsg').textContent = '';
+  document.getElementById('authMsg').className = 'auth-msg';
+}
+
+async function handleAuthSubmit(e){
+  e.preventDefault();
+  if(!isConfigured) return;
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const msgEl = document.getElementById('authMsg');
+  const btn = document.getElementById('authSubmitBtn');
+  msgEl.textContent = '';
+  msgEl.className = 'auth-msg';
+  btn.disabled = true;
+
   try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const parsed = JSON.parse(raw);
-      state = Object.assign(state, parsed);
+    if(authMode === 'signup'){
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if(error) throw error;
+      if(data.session){
+        // email confirmation disabled — logged in immediately
+      } else {
+        msgEl.textContent = 'Account created — check your email to confirm, then log in.';
+        msgEl.className = 'auth-msg ok';
+        setAuthMode('login');
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+    }
+  }catch(err){
+    msgEl.textContent = err.message || 'Something went wrong.';
+    msgEl.className = 'auth-msg error';
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function handleLogout(){
+  if(!isConfigured) return;
+  if(realtimeChannel){ supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
+  await supabase.auth.signOut();
+}
+
+function showAuthScreen(){
+  document.getElementById('authWrap').style.display = 'flex';
+  document.getElementById('appRoot').style.display = 'none';
+}
+
+function showApp(user){
+  currentUser = user;
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'block';
+  document.getElementById('whoEmail').textContent = user.email;
+  loadState();
+  subscribeRealtime();
+}
+
+if(isConfigured){
+  supabase.auth.getSession().then(({ data }) => {
+    if(data.session){ showApp(data.session.user); } else { showAuthScreen(); }
+  });
+  supabase.auth.onAuthStateChange((event, session) => {
+    if(session){ showApp(session.user); }
+    else { showAuthScreen(); loaded = false; }
+  });
+} else {
+  showAuthScreen();
+}
+
+/* ---------- Shared state: load / save via Supabase ---------- */
+async function loadState(){
+  try{
+    const { data, error } = await supabase
+      .from('futsal_state')
+      .select('*')
+      .eq('id', STATE_ROW_ID)
+      .maybeSingle();
+    if(error) throw error;
+    if(data){
+      state.venue = data.venue ?? state.venue;
+      state.time = data.match_time ?? state.time;
+      state.players = data.players ?? [];
+    } else {
+      // no row yet — create the shared row with current defaults
+      await supabase.from('futsal_state').insert({
+        id: STATE_ROW_ID, venue: state.venue, match_time: state.time, players: state.players
+      });
     }
   }catch(e){
-    // no existing state yet, or storage unavailable — keep defaults
+    setStatus('Could not load shared roster — check Supabase setup');
   }
   loaded = true;
   render();
@@ -442,10 +727,18 @@ function loadState(){
 
 let saveTimer = null;
 function saveState(msg){
+  if(!isConfigured) return;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  saveTimer = setTimeout(async () => {
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const { error } = await supabase.from('futsal_state').upsert({
+        id: STATE_ROW_ID,
+        venue: state.venue,
+        match_time: state.time,
+        players: state.players,
+        updated_at: new Date().toISOString()
+      });
+      if(error) throw error;
       setStatus(msg || 'Saved');
     }catch(e){
       setStatus('Could not save — changes may not persist');
@@ -453,8 +746,25 @@ function saveState(msg){
   }, 250);
 }
 
+/* live sync: pick up changes made by other signed-in players */
+function subscribeRealtime(){
+  if(!isConfigured || realtimeChannel) return;
+  realtimeChannel = supabase
+    .channel('futsal_state_changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'futsal_state', filter: `id=eq.${STATE_ROW_ID}` }, (payload) => {
+      if(payload.new){
+        state.venue = payload.new.venue ?? state.venue;
+        state.time = payload.new.match_time ?? state.time;
+        state.players = payload.new.players ?? state.players;
+        render();
+      }
+    })
+    .subscribe();
+}
+
 function setStatus(msg){
   const el = document.getElementById('statusMsg');
+  if(!el) return;
   el.textContent = msg;
   setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
 }
@@ -518,7 +828,6 @@ function swapGroup(id){
 /* auto-balance groups among everyone marked 'yes', preserving manual swaps where possible */
 function reassignGroups(){
   const yesPlayers = state.players.filter(p=>p.attend==='yes');
-  // keep existing group assignment if present, else assign alternating to balance
   let countA = yesPlayers.filter(p=>p.group==='A').length;
   let countB = yesPlayers.filter(p=>p.group==='B').length;
   yesPlayers.forEach(p=>{
@@ -640,8 +949,6 @@ function downloadPDF(){
   });
   window.print();
 }
-
-loadState();
 </script>
 
 </body>

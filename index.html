@@ -844,15 +844,17 @@ sbClient.auth.onAuthStateChange((_event, session) => {
   }
 });
 
-/* ensure the signed-in user has their own row in the shared roster */
+/* ensure the signed-in user has their own row in the shared roster
+   (goes through a SECURITY DEFINER function so it can't be blocked by
+   the same kind of RLS/legacy-column issue admin actions hit) */
 async function ensureMyPlayerRow(displayName){
-  const { data: existing } = await sbClient.from('players').select('id').eq('user_id', myUserId).maybeSingle();
-  if(existing){ myPlayerId = existing.id; return; }
-  const { data, error } = await sbClient.from('players')
-    .insert({ user_id: myUserId, display_name: displayName, attend: null, group_name: null })
-    .select('id')
-    .single();
-  if(!error && data) myPlayerId = data.id;
+  const { data, error } = await sbClient.rpc('ensure_self_player', { p_display_name: displayName });
+  if(error){
+    console.error('ensureMyPlayerRow failed:', error);
+    setStatus('Could not set up your player row — ' + (error.message || error.code || 'unknown error'), true);
+    return;
+  }
+  if(data) myPlayerId = data.id;
 }
 
 async function loadAllData(){
@@ -922,7 +924,7 @@ function setStatus(msg, isError){
   // errors stay on screen until the next action, so there's time to read/report them
 }
 
-/* ---------- Editable match info (admin only) ---------- */
+/* ---------- Editable match info (admin only, via RPC) ---------- */
 function startEdit(field){
   if(!isAdmin) return;
   const display = document.getElementById(field+'Display');
@@ -942,13 +944,22 @@ async function finishEdit(field){
   const column = FIELD_TO_COLUMN[field];
   matchInfo[column] = val; // optimistic
   render();
-  const { error } = await sbClient.from('match_info').update({ [column]: val }).eq('id', 1);
-  setStatus(error ? 'Could not save — try again' : 'Match info saved');
+  const rpcArgs = column === 'venue' ? { p_venue: val, p_kickoff: null } : { p_venue: null, p_kickoff: val };
+  const { error } = await sbClient.rpc('admin_update_match_info', rpcArgs);
+  if(error){
+    console.error('finishEdit failed:', error);
+    setStatus('Could not save — ' + (error.message || error.code || 'unknown error'), true);
+    return;
+  }
+  setStatus('Match info saved');
 }
 
 /* ---------- Players ---------- */
-/* Admin: add guest players, remove anyone, move anyone between groups.
-   Everyone else: mark only their own attendance; group is auto-assigned. */
+/* Admin actions (add / remove / move / reset) go through SECURITY DEFINER
+   database functions (see supabase-setup.sql) so they work regardless of
+   RLS-policy or GRANT configuration on the base tables — the function
+   itself checks the admin email before doing anything.
+   Everyone else can only mark their own attendance; group auto-assigns. */
 async function addPlayer(){
   if(!isAdmin){
     setStatus('Only the admin account can add players.', true);
@@ -959,27 +970,24 @@ async function addPlayer(){
   const name = input.value.trim();
   if(!name) return;
   const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
-  const { data, error } = await sbClient.from('players').insert({
-    display_name: name,
-    attend: chosenGroup ? 'yes' : null,
-    group_name: chosenGroup
-  }).select();
+  const { data, error } = await sbClient.rpc('admin_add_player', {
+    p_name: name,
+    p_group: chosenGroup
+  });
   if(error){
     console.error('addPlayer failed:', error);
     setStatus('Could not add player — ' + (error.message || error.code || 'unknown error'), true);
     return; // keep the typed name so nothing is lost on failure
   }
-  if(!data || data.length === 0){
-    // Insert reported no error but nothing came back — this shape is the
-    // classic symptom of a Row Level Security policy silently filtering
-    // the row rather than throwing an error.
-    console.warn('addPlayer: insert returned no row — likely blocked by RLS.');
-    setStatus('Player wasn\'t saved — check the admin insert policy in Supabase (RLS may be blocking it).', true);
+  if(!data){
+    console.warn('addPlayer: RPC returned no row.');
+    setStatus('Player wasn\'t saved — please try again.', true);
     return;
   }
   input.value = '';
   groupSelect.value = '';
   setStatus(chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added');
+  await loadAllData(); // realtime will also refresh this, but don't wait on it
 }
 
 async function setAttend(id, val){
@@ -987,16 +995,27 @@ async function setAttend(id, val){
   if(!p) return;
   if(!isAdmin && id !== myPlayerId) return; // everyone else can only mark themselves
   const newAttend = (p.attend === val) ? null : val;
-  const patch = { attend: newAttend };
-  if(newAttend !== 'yes') patch.group_name = null;
 
   // optimistic local update so the UI feels instant
   p.attend = newAttend;
   if(newAttend !== 'yes') p.group_name = null;
   render();
 
-  const { error } = await sbClient.from('players').update(patch).eq('id', id);
-  if(error){ setStatus('Could not save — try again'); return; }
+  let error;
+  if(id === myPlayerId){
+    // self-service: normal table write under the "self" RLS policy
+    const patch = { attend: newAttend };
+    if(newAttend !== 'yes') patch.group_name = null;
+    ({ error } = await sbClient.from('players').update(patch).eq('id', id));
+  } else {
+    // admin acting on someone else's row (e.g. a guest with no account)
+    ({ error } = await sbClient.rpc('admin_set_attend', { p_id: id, p_val: newAttend }));
+  }
+  if(error){
+    console.error('setAttend failed:', error);
+    setStatus('Could not save — ' + (error.message || error.code || 'unknown error'), true);
+    return;
+  }
   if(newAttend === 'yes' && !p.group_name){
     await autoAssignGroup(id);
   }
@@ -1010,13 +1029,23 @@ async function autoAssignGroup(id){
   const p = players.find(p=>p.id===id);
   if(p) p.group_name = group;
   render();
-  await sbClient.from('players').update({ group_name: group }).eq('id', id);
+  if(id === myPlayerId){
+    await sbClient.from('players').update({ group_name: group }).eq('id', id);
+  } else {
+    await sbClient.rpc('admin_set_group', { p_id: id, p_group: group });
+  }
 }
 
 async function removePlayer(id){
   if(!isAdmin) return;
-  const { error } = await sbClient.from('players').delete().eq('id', id);
-  setStatus(error ? 'Could not remove player' : 'Player removed');
+  const { error } = await sbClient.rpc('admin_remove_player', { p_id: id });
+  if(error){
+    console.error('removePlayer failed:', error);
+    setStatus('Could not remove player — ' + (error.message || error.code || 'unknown error'), true);
+    return;
+  }
+  setStatus('Player removed');
+  await loadAllData();
 }
 
 async function swapGroup(id){
@@ -1026,8 +1055,11 @@ async function swapGroup(id){
   const newGroup = p.group_name === 'A' ? 'B' : 'A';
   p.group_name = newGroup;
   render();
-  const { error } = await sbClient.from('players').update({ group_name: newGroup }).eq('id', id);
-  if(error) setStatus('Could not move player');
+  const { error } = await sbClient.rpc('admin_set_group', { p_id: id, p_group: newGroup });
+  if(error){
+    console.error('swapGroup failed:', error);
+    setStatus('Could not move player — ' + (error.message || error.code || 'unknown error'), true);
+  }
 }
 
 async function resetPlayers(){
@@ -1035,10 +1067,14 @@ async function resetPlayers(){
   if(!confirm('Reset attendance for every player? Everyone goes back to unmarked with no group. The roster names stay.')) return;
   players.forEach(p => { p.attend = null; p.group_name = null; });
   render();
-  const { error } = await sbClient.from('players')
-    .update({ attend: null, group_name: null })
-    .not('id', 'is', null);
-  setStatus(error ? 'Could not reset players' : 'Players reset');
+  const { error } = await sbClient.rpc('admin_reset_players');
+  if(error){
+    console.error('resetPlayers failed:', error);
+    setStatus('Could not reset players — ' + (error.message || error.code || 'unknown error'), true);
+    return;
+  }
+  setStatus('Players reset');
+  await loadAllData();
 }
 
 /* ---------- Render ---------- */

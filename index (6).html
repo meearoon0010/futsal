@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Futsal — Attendance</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg-night:#0a130d;
+    --bg-panel:#142a1e;
+    --bg-panel-2:#0f2117;
+    --turf:#2f6b3c;
+    --turf-bright:#57b565;
+    --chalk:#f2f5ee;
+    --amber:#f0a531;
+    --amber-deep:#c97d1e;
+    --muted:#86988c;
+    --line:#223a2c;
+    --red:#c1443c;
+    --red-deep:#8f2f29;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    background-color:var(--bg-night);
+  }
+
+  body{
+    color:var(--chalk);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+    min-height:100vh;
+  }
+
+  /* A single, quiet nod to the pitch: a halfway line and center circle,
+     fixed behind everything, low-contrast enough to read as atmosphere
+     rather than decoration. */
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    background:
+      radial-gradient(circle at 50% 190px, transparent 96px, rgba(242,245,238,0.05) 97px, rgba(242,245,238,0.05) 99px, transparent 100px),
+      linear-gradient(rgba(242,245,238,0.05), rgba(242,245,238,0.05)) center 190px / 100% 1px no-repeat,
+      radial-gradient(ellipse 60% 40% at 8% -6%, rgba(240,165,49,0.10), transparent 60%),
+      radial-gradient(ellipse 55% 45% at 96% 18%, rgba(87,181,101,0.08), transparent 60%);
+  }
+
+  a{color:inherit;}
+
+  ::selection{background:var(--amber);color:#221200;}
+
+  :focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  /* Anything marked admin-only is hidden from everyone else */
+  body.role-viewer .admin-only{display:none !important;}
+
+  .app{
+    max-width:640px;
+    margin:0 auto;
+    padding:28px 18px 60px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---------- Header ---------- */
+  .masthead{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:24px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--line);
+  }
+  .wordmark{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .crest{
+    width:34px;
+    height:34px;
+    flex-shrink:0;
+  }
+  .masthead h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:40px;
+    letter-spacing:0.5px;
+    margin:0;
+    line-height:0.85;
+    color:var(--chalk);
+  }
+  .masthead .tagline{
+    font-size:13px;
+    color:var(--muted);
+    font-weight:500;
+    margin:0 0 3px;
+    text-align:right;
+    max-width:130px;
+  }
+
+  /* ---------- Scoreboard match info (styled as a torn matchday ticket) ---------- */
+  .scoreboard{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-bottom:2px dashed var(--line);
+    padding:20px 20px 18px;
+    margin-bottom:24px;
+    position:relative;
+  }
+  .scoreboard-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .scoreboard-grid > div:first-child{
+    border-right:1px dashed var(--line);
+    padding-right:18px;
+    margin-right:18px;
+  }
+  .field-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    color:var(--muted);
+    font-weight:700;
+    margin-bottom:7px;
+    display:block;
+  }
+  .field-value{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:23px;
+    color:var(--amber);
+    letter-spacing:0.3px;
+    cursor:text;
+    border-bottom:1px dashed transparent;
+    word-break:break-word;
+  }
+  .field-value:hover{border-bottom-color:var(--muted);}
+  .scoreboard input{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:2px solid var(--amber);
+    color:var(--amber);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:23px;
+    letter-spacing:0.3px;
+    padding:2px 0;
+    outline:none;
+  }
+  .edit-hint{
+    position:absolute;
+    top:14px;
+    right:16px;
+    font-size:11px;
+    color:var(--muted);
+    font-style:italic;
+  }
+
+  /* ---------- Add player ---------- */
+  .add-row{
+    display:flex;
+    margin-bottom:22px;
+    border:1px solid var(--line);
+  }
+  .add-row input{
+    flex:1;
+    min-width:0;
+    background:var(--bg-panel);
+    border:none;
+    border-right:1px solid var(--line);
+    color:var(--chalk);
+    padding:12px 14px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .add-row input:focus{background:var(--bg-panel-2);}
+  .add-row select{
+    background:var(--bg-panel);
+    border:none;
+    border-right:1px solid var(--line);
+    color:var(--chalk);
+    padding:0 10px;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .add-row button{
+    background:var(--turf-bright);
+    color:#08130c;
+    border:none;
+    padding:0 22px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    transition:background .12s ease;
+  }
+  .add-row button:hover{background:var(--amber);}
+
+  /* ---------- Roster ---------- */
+  .section-title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:19px;
+    letter-spacing:0.5px;
+    color:var(--chalk);
+    margin:0 0 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .section-title .count{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:600;
+  }
+
+  .roster{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin-bottom:30px;
+  }
+  .player-row{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .squad-num{
+    flex-shrink:0;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .player-name{
+    flex:1;
+    font-size:15px;
+    font-weight:600;
+    color:var(--chalk);
+  }
+  .group-tag{
+    font-size:11px;
+    font-weight:800;
+    padding:3px 8px;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    user-select:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    min-width:20px;
+    text-align:center;
+  }
+  .group-tag.A{border-color:var(--amber);color:var(--amber);}
+  .group-tag.B{border-color:var(--turf-bright);color:var(--turf-bright);}
+
+  .toggle-pair{
+    display:flex;
+    border:1px solid var(--line);
+  }
+  .toggle-btn{
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    padding:7px 13px;
+    cursor:pointer;
+    transition:background .1s ease, color .1s ease;
+  }
+  .toggle-btn.yes{border-right:1px solid var(--line);}
+  .toggle-btn.yes.active{background:var(--turf-bright);color:#08130c;}
+  .toggle-btn.no.active{background:var(--red);color:#1c0a08;}
+  .toggle-btn:disabled{cursor:default;opacity:0.55;}
+  .toggle-btn:not(:disabled):hover{color:var(--chalk);}
+
+  .remove-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:16px;
+    cursor:pointer;
+    padding:2px 4px;
+    line-height:1;
+  }
+  .remove-btn:hover{color:var(--red);}
+
+  .empty-note{
+    color:var(--muted);
+    font-size:13px;
+    padding:16px 0;
+    font-style:italic;
+  }
+
+  /* ---------- Balance ---------- */
+  .balance-list{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin-bottom:30px;
+  }
+  .balance-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .balance-name{
+    flex:1;
+    font-size:15px;
+    font-weight:600;
+    color:var(--chalk);
+  }
+  .balance-amount{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:19px;
+    letter-spacing:0.3px;
+    color:var(--turf-bright);
+    min-width:64px;
+    text-align:right;
+  }
+  .balance-amount.low{color:var(--red);}
+  .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
+  .balance-amount.editable:hover{border-bottom-color:var(--muted);}
+  .balance-add-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    font-weight:700;
+    padding:6px 9px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .balance-add-btn:hover{border-color:var(--turf-bright);color:var(--turf-bright);}
+  .renew-btn{
+    background:none;
+    border:1px solid var(--amber);
+    color:var(--amber);
+    font-size:11px;
+    font-weight:700;
+    padding:6px 9px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .12s ease, color .12s ease;
+  }
+  .renew-btn:hover{background:var(--amber);color:#221200;}
+  .renew-btn.sent{border-color:var(--line);color:var(--muted);}
+  .renew-btn.sent:hover{background:none;border-color:var(--red);color:var(--red);}
+
+  /* ---------- Groups (bibs) ---------- */
+  .groups-wrap{margin-bottom:30px;}
+  .groups-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .bib{
+    border:1px solid var(--line);
+    padding:15px 14px;
+  }
+  .bib.A{border-top:3px solid var(--amber);background:linear-gradient(180deg, rgba(240,165,49,0.07), transparent 40%);}
+  .bib.B{border-top:3px solid var(--turf-bright);background:linear-gradient(180deg, rgba(87,181,101,0.07), transparent 40%);}
+  .bib h3{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:17px;
+    letter-spacing:0.5px;
+    margin:0 0 10px;
+  }
+  .bib.A h3{color:var(--amber);}
+  .bib.B h3{color:var(--turf-bright);}
+  .bib ul{list-style:none;margin:0;padding:0;}
+  .bib li{
+    font-size:14px;
+    padding:7px 0;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .bib li:last-child{border-bottom:none;}
+  .swap-btn{
+    background:none;border:none;color:var(--muted);
+    font-size:11px;cursor:pointer;
+  }
+  .swap-btn:hover{color:var(--chalk);text-decoration:underline;}
+
+  /* ---------- Footer actions ---------- */
+  .actions{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    align-items:flex-start;
+    border-top:1px solid var(--line);
+    padding-top:22px;
+  }
+  .download-btn{
+    background:var(--amber);
+    color:#221200;
+    border:none;
+    padding:13px 22px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .12s ease;
+  }
+  .download-btn:hover{background:#ffb745;}
+  .actions .note{font-size:12px;color:var(--muted);}
+  .reset-btn{
+    background:none;
+    border:1px solid var(--red);
+    color:var(--red);
+    padding:9px 16px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease;
+  }
+  .reset-btn:hover{background:var(--red);color:var(--chalk);}
+
+  .status-msg{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:4px;
+    min-height:14px;
+  }
+
+  /* ---------- Print / PDF view ---------- */
+  #printable{display:none;}
+
+  @media print{
+    body::before{display:none;}
+    body *{visibility:hidden;}
+    #printable, #printable *{visibility:visible;}
+    #printable{
+      display:block;
+      position:absolute;
+      top:0;left:0;
+      width:100%;
+      background:#fff;
+      color:#000;
+      padding:20px;
+    }
+    #printable h1{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:30px;
+      margin:0 0 4px;
+    }
+    #printable .meta{font-size:13px;margin-bottom:16px;color:#333;}
+    #printable .cols{display:flex;gap:30px;}
+    #printable .col{flex:1;}
+    #printable .col h2{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:18px;
+      border-bottom:2px solid #000;
+      padding-bottom:4px;
+      margin-bottom:8px;
+    }
+    #printable ol{padding-left:18px;margin:0;}
+    #printable li{padding:3px 0;font-size:14px;}
+  }
+
+  @media (max-width:420px){
+    .masthead h1{font-size:32px;}
+    .scoreboard-grid{grid-template-columns:1fr;}
+    .scoreboard-grid > div:first-child{
+      border-right:none;
+      border-bottom:1px dashed var(--line);
+      padding-right:0;
+      margin-right:0;
+      padding-bottom:14px;
+      margin-bottom:14px;
+    }
+  }
+
+  /* ---------- Auth ---------- */
+  .auth-wrap{
+    max-width:400px;
+    margin:0 auto;
+    padding:60px 18px;
+    position:relative;
+    z-index:1;
+  }
+  .auth-card{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    padding:8px 24px 24px;
+  }
+  .auth-tabs{
+    display:flex;
+    margin:0 -24px 22px;
+    border-bottom:1px solid var(--line);
+  }
+  .auth-tab{
+    flex:1;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:16px;
+    letter-spacing:0.4px;
+    padding:16px 0 12px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .auth-tab.active{color:var(--chalk);border-bottom-color:var(--amber);}
+  .auth-card .auth-sub{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 18px;
+  }
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .auth-field input{
+    width:100%;
+    background:var(--bg-night);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:11px 12px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .auth-field input:focus{border-color:var(--turf-bright);}
+  .remember-me{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:-4px 0 14px;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    user-select:none;
+  }
+  .remember-me input{
+    width:15px;
+    height:15px;
+    accent-color:var(--turf-bright);
+    cursor:pointer;
+  }
+  .auth-submit{
+    width:100%;
+    background:var(--amber);
+    color:#221200;
+    border:none;
+    padding:13px 20px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:6px;
+    transition:background .12s ease;
+  }
+  .auth-submit:hover{background:#ffb745;}
+  .auth-submit:disabled{opacity:0.6;cursor:not-allowed;}
+  .auth-msg{
+    font-size:12px;
+    margin-top:14px;
+    min-height:14px;
+  }
+  .auth-msg.error{color:var(--red);}
+  .auth-msg.success{color:var(--turf-bright);}
+
+  .user-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .user-bar .who{color:var(--chalk);font-weight:600;}
+  .logout-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    cursor:pointer;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+  .admin-badge{
+    display:inline-block;
+    margin-left:6px;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    color:var(--amber);
+    border:1px solid var(--amber);
+    padding:1px 5px;
+    vertical-align:middle;
+  }
+
+  /* ---------- Attendance prompt modal ---------- */
+  .attend-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(6,12,8,0.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .attend-modal-card{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-top:3px solid var(--amber);
+    padding:28px 26px 24px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+    animation:modal-pop .22s cubic-bezier(.2,.8,.3,1.15) both;
+  }
+  @keyframes modal-pop{
+    from{opacity:0; transform:scale(0.94) translateY(6px);}
+    to{opacity:1; transform:none;}
+  }
+  .attend-modal-card h2{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:27px;
+    letter-spacing:0.5px;
+    margin:0 0 6px;
+    color:var(--chalk);
+  }
+  .attend-modal-sub{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 20px;
+  }
+  .attend-modal-actions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .attend-modal-actions .toggle-btn{
+    flex:1;
+    padding:12px 10px;
+    font-size:13px;
+    border:1px solid var(--line);
+  }
+  .attend-modal-skip{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+  }
+  .attend-modal-skip:hover{color:var(--chalk);}
+
+</style>
+</head>
+<body>
+
+<!-- Auth screen: shown until the user is logged in -->
+<div class="auth-wrap" id="authWrap">
+  <div class="masthead" style="max-width:400px;margin:0 auto 22px;">
+    <div class="wordmark">
+      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+        <circle cx="22" cy="22" r="19" fill="none" stroke="var(--chalk)" stroke-width="1.6" opacity="0.3"/>
+        <path d="M22 8 L31.4 14.6 L27.9 25.4 L16.1 25.4 L12.6 14.6 Z" fill="var(--amber)"/>
+      </svg>
+      <h1>FUTSAL</h1>
+    </div>
+    <div class="tagline">Matchday squad list</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="tabLogin" onclick="showLogin()">Log in</button>
+      <button type="button" class="auth-tab" id="tabSignup" onclick="showSignup()">Create account</button>
+    </div>
+
+    <!-- Login form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <p class="auth-sub">Sign in to see tonight's roster.</p>
+      <div class="auth-field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
+      </div>
+      <label class="remember-me">
+        <input type="checkbox" id="rememberMe">
+        <span>Remember me on this device</span>
+      </label>
+      <button type="submit" class="auth-submit" id="loginBtn">Log in</button>
+    </form>
+
+    <!-- Sign up form -->
+    <form id="signupForm" style="display:none" onsubmit="handleSignup(event)">
+      <p class="auth-sub">Join the squad — one row, one YES or NO.</p>
+      <div class="auth-field">
+        <label for="signupEmail">Email</label>
+        <input type="email" id="signupEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="signupDisplayName">Display name</label>
+        <input type="text" id="signupDisplayName" autocomplete="name" required>
+      </div>
+      <div class="auth-field">
+        <label for="signupPassword">Password</label>
+        <input type="password" id="signupPassword" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="auth-field">
+        <label for="signupConfirmPassword">Confirm password</label>
+        <input type="password" id="signupConfirmPassword" autocomplete="new-password" required minlength="6">
+      </div>
+      <button type="submit" class="auth-submit" id="signupBtn">Create account</button>
+    </form>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<div class="app" id="appWrap" style="display:none">
+
+  <div class="user-bar">
+    <span>Signed in as <span class="who" id="whoAmI"></span></span>
+    <button class="logout-btn" onclick="handleLogout()">Log out</button>
+  </div>
+
+  <div class="masthead">
+    <div class="wordmark">
+      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+        <circle cx="22" cy="22" r="19" fill="none" stroke="var(--chalk)" stroke-width="1.6" opacity="0.3"/>
+        <path d="M22 8 L31.4 14.6 L27.9 25.4 L16.1 25.4 L12.6 14.6 Z" fill="var(--amber)"/>
+      </svg>
+      <h1>FUTSAL</h1>
+    </div>
+    <div class="tagline">Matchday squad list</div>
+  </div>
+
+  <div class="scoreboard">
+    <span class="edit-hint admin-only">tap to edit</span>
+    <div class="scoreboard-grid">
+      <div>
+        <span class="field-label">Venue</span>
+        <div class="field-value" id="venueDisplay" onclick="startEdit('venue')"></div>
+        <input type="text" id="venueInput" style="display:none" onblur="finishEdit('venue')" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+      <div>
+        <span class="field-label">Date &amp; Kick-off</span>
+        <div class="field-value" id="timeDisplay" onclick="startEdit('time')"></div>
+        <input type="text" id="timeInput" style="display:none" placeholder="e.g. Fri 12 Sep, 7:00 PM" onblur="finishEdit('time')" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+    </div>
+  </div>
+
+  <div class="add-row">
+    <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
+    <select id="newPlayerGroup" title="Assign to a group (optional)">
+      <option value="">No group yet</option>
+      <option value="A">Group A</option>
+      <option value="B">Group B</option>
+    </select>
+    <button onclick="addPlayer()">Add</button>
+  </div>
+
+  <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
+  <div class="roster" id="rosterList"></div>
+
+  <div class="section-title">Balance</div>
+  <div class="balance-list" id="balanceList"></div>
+
+  <div class="groups-wrap" id="groupsWrap" style="display:none">
+    <div class="section-title">Teams — Confirmed Players</div>
+    <div class="groups-grid">
+      <div class="bib A">
+        <h3>Group A</h3>
+        <ul id="groupAList"></ul>
+      </div>
+      <div class="bib B">
+        <h3>Group B</h3>
+        <ul id="groupBList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
+    <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
+    <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
+    <span class="note admin-only">Changes sync live — everyone signed in sees the same roster in real time.</span>
+    <span class="status-msg" id="statusMsg"></span>
+  </div>
+
+</div>
+
+<!-- Attendance prompt: shown right after login until the player answers -->
+<div class="attend-modal" id="attendModal" style="display:none">
+  <div class="attend-modal-card">
+    <h2>Are you playing?</h2>
+    <p class="attend-modal-sub" id="attendModalName"></p>
+    <div class="attend-modal-actions">
+      <button class="toggle-btn yes" onclick="answerAttendance('yes')">YES, I'm in</button>
+      <button class="toggle-btn no" onclick="answerAttendance('no')">NO, can't make it</button>
+    </div>
+    <button class="attend-modal-skip" onclick="dismissAttendModal()">Decide later</button>
+  </div>
+</div>
+
+<!-- Renew payment prompt: shown after login when the admin has flagged
+     this player's balance as needing a top-up -->
+<div class="attend-modal" id="renewModal" style="display:none">
+  <div class="attend-modal-card">
+    <h2>Renew payment</h2>
+    <p class="attend-modal-sub">Your balance has run out. Please pay up to keep your spot for the next match.</p>
+    <button class="auth-submit" onclick="dismissRenewPrompt()">Got it</button>
+  </div>
+</div>
+
+<!-- Printable summary, only shown to the print engine -->
+<div id="printable">
+  <h1>Futsal — Attendance</h1>
+  <div class="meta" id="printMeta"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Group A</h2>
+      <ol id="printA"></ol>
+    </div>
+    <div class="col">
+      <h2>Group B</h2>
+      <ol id="printB"></ol>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ---------- Supabase auth ---------- */
+const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function setAuthMsg(msg, type){
+  const el = document.getElementById('authMsg');
+  el.textContent = msg || '';
+  el.className = 'auth-msg' + (type ? ' '+type : '');
+}
+
+function showLogin(){
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('tabLogin').classList.add('active');
+  document.getElementById('tabSignup').classList.remove('active');
+  setAuthMsg('');
+}
+function showSignup(){
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'block';
+  document.getElementById('tabSignup').classList.add('active');
+  document.getElementById('tabLogin').classList.remove('active');
+  setAuthMsg('');
+}
+
+/* ---------- Remember me (stores email + password in this browser only) ---------- */
+const REMEMBER_KEY = 'futsalRememberedLogin';
+
+function loadRememberedLogin(){
+  try{
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if(!raw) return;
+    const { email, password } = JSON.parse(raw);
+    document.getElementById('loginEmail').value = email || '';
+    document.getElementById('loginPassword').value = password || '';
+    document.getElementById('rememberMe').checked = true;
+  }catch(e){ /* ignore malformed/blocked storage */ }
+}
+
+function saveRememberedLogin(email, password){
+  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email, password })); }
+  catch(e){ /* storage unavailable — fail silently, login still works */ }
+}
+
+function clearRememberedLogin(){
+  try{ localStorage.removeItem(REMEMBER_KEY); }catch(e){}
+}
+
+async function handleLogin(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const remember = document.getElementById('rememberMe').checked;
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Logging in…';
+  const { error } = await sbClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Log In';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+  if(remember){ saveRememberedLogin(email, password); } else { clearRememberedLogin(); }
+  // onAuthStateChange handles showing the app
+}
+
+async function handleSignup(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('signupEmail').value.trim();
+  const displayName = document.getElementById('signupDisplayName').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+  if(password !== confirmPassword){
+    setAuthMsg('Passwords do not match.', 'error');
+    return;
+  }
+  if(password.length < 6){
+    setAuthMsg('Password must be at least 6 characters.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('signupBtn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  const { data, error } = await sbClient.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: displayName } }
+  });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+
+  if(data.session){
+    // Email confirmation is disabled on this project — user is signed in immediately.
+    return;
+  }
+  setAuthMsg('Account created! Check your email to confirm, then log in.', 'success');
+  document.getElementById('signupForm').reset();
+  showLogin();
+}
+
+async function handleLogout(){
+  await sbClient.auth.signOut();
+}
+
+const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
+let isAdmin = false;
+
+/* ---------- Shared, realtime app state (Supabase) ---------- */
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM' };
+let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
+let myUserId = null;
+let myPlayerId = null;
+let loaded = false;
+let realtimeChannel = null;
+let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
+let attendPromptDismissed = false;
+
+const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
+
+async function showApp(user){
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'block';
+  const email = (user?.email || '').toLowerCase();
+  isAdmin = email === ADMIN_EMAIL;
+  myUserId = user.id;
+  const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
+  const whoAmI = document.getElementById('whoAmI');
+  whoAmI.textContent = displayName;
+  const existingBadge = whoAmI.parentElement.querySelector('.admin-badge');
+  if(existingBadge) existingBadge.remove();
+  if(isAdmin){
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge';
+    badge.textContent = 'Admin';
+    whoAmI.after(badge);
+  }
+  document.body.classList.toggle('role-admin', isAdmin);
+  document.body.classList.toggle('role-viewer', !isAdmin);
+
+  // fresh login: allow the "are you playing?" prompt to show again
+  prevMineAttend = undefined;
+  attendPromptDismissed = false;
+
+  await ensureMyPlayerRow(displayName);
+  await loadAllData();
+  subscribeRealtime();
+}
+
+function showAuthScreen(){
+  document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('authWrap').style.display = 'block';
+  document.getElementById('attendModal').style.display = 'none';
+  showLogin();
+  if(realtimeChannel){ sbClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+  loaded = false;
+  players = [];
+  myPlayerId = null;
+  myUserId = null;
+  prevMineAttend = undefined;
+  attendPromptDismissed = false;
+}
+
+sbClient.auth.onAuthStateChange((_event, session) => {
+  if(session && session.user){
+    showApp(session.user);
+  } else {
+    showAuthScreen();
+    loadRememberedLogin();
+  }
+});
+
+/* ensure the signed-in user has their own row in the shared roster */
+async function ensureMyPlayerRow(displayName){
+  const { data: existing } = await sbClient.from('players').select('id').eq('user_id', myUserId).maybeSingle();
+  if(existing){ myPlayerId = existing.id; return; }
+  const { data, error } = await sbClient.from('players')
+    .insert({ user_id: myUserId, display_name: displayName, attend: null, group_name: null })
+    .select('id')
+    .single();
+  if(!error && data) myPlayerId = data.id;
+}
+
+async function loadAllData(){
+  const [matchResult, playersResult] = await Promise.all([
+    sbClient.from('match_info').select('*').eq('id', 1).single(),
+    sbClient.from('players').select('*').order('created_at', { ascending: true })
+  ]);
+  if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
+  if(!playersResult.error) players = playersResult.data || [];
+  const mine = players.find(p => p.user_id === myUserId);
+  myPlayerId = mine ? mine.id : myPlayerId;
+  loaded = true;
+  render();
+  maybeShowAttendPrompt();
+  maybeShowRenewPrompt();
+}
+
+/* Ask "are you playing?" right after login (or right after admin resets
+   attendance), unless the player already answered or dismissed it. */
+function maybeShowAttendPrompt(){
+  const modal = document.getElementById('attendModal');
+  const mine = players.find(p => p.id === myPlayerId);
+  if(!mine){ modal.style.display = 'none'; return; }
+
+  if(mine.attend !== null){
+    attendPromptDismissed = false; // reset so a future reset can prompt again
+    modal.style.display = 'none';
+    prevMineAttend = mine.attend;
+    return;
+  }
+
+  const isFirstCheck = prevMineAttend === undefined;
+  const justReset = prevMineAttend !== undefined && prevMineAttend !== null;
+  if((isFirstCheck || justReset) && !attendPromptDismissed){
+    document.getElementById('attendModalName').textContent =
+      `Hey ${mine.display_name}, let us know before the roster fills up.`;
+    modal.style.display = 'flex';
+  }
+  prevMineAttend = mine.attend;
+}
+
+async function answerAttendance(val){
+  document.getElementById('attendModal').style.display = 'none';
+  attendPromptDismissed = false;
+  if(myPlayerId) await setAttend(myPlayerId, val);
+  maybeShowRenewPrompt();
+}
+
+function dismissAttendModal(){
+  attendPromptDismissed = true;
+  document.getElementById('attendModal').style.display = 'none';
+  maybeShowRenewPrompt();
+}
+
+/* Show a "renew payment" popup right after login (or right after the
+   admin flags a player's balance) — but never at the same time as the
+   "are you playing?" prompt, so only one modal ever competes for
+   attention. */
+function maybeShowRenewPrompt(){
+  const modal = document.getElementById('renewModal');
+  const mine = players.find(p => p.id === myPlayerId);
+  const attendShowing = document.getElementById('attendModal').style.display === 'flex';
+  if(!mine || !mine.payment_reminder || attendShowing){
+    modal.style.display = 'none';
+    return;
+  }
+  modal.style.display = 'flex';
+}
+
+async function dismissRenewPrompt(){
+  document.getElementById('renewModal').style.display = 'none';
+  if(!myPlayerId) return;
+  const p = players.find(p => p.id === myPlayerId);
+  if(p) p.payment_reminder = false; // optimistic
+  await sbClient.from('players').update({ payment_reminder: false }).eq('id', myPlayerId);
+}
+
+function subscribeRealtime(){
+  if(realtimeChannel) return;
+  realtimeChannel = sbClient.channel('futsal-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, () => loadAllData())
+    .subscribe();
+}
+
+function setStatus(msg){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
+}
+
+/* ---------- Editable match info (admin only) ---------- */
+function startEdit(field){
+  if(!isAdmin) return;
+  const display = document.getElementById(field+'Display');
+  const input = document.getElementById(field+'Input');
+  input.value = field === 'venue' ? matchInfo.venue : matchInfo.kickoff_time;
+  display.style.display = 'none';
+  input.style.display = 'block';
+  input.focus();
+  input.select();
+}
+async function finishEdit(field){
+  const input = document.getElementById(field+'Input');
+  const val = input.value.trim();
+  input.style.display = 'none';
+  document.getElementById(field+'Display').style.display = 'block';
+  if(!isAdmin || !val){ render(); return; }
+  const column = FIELD_TO_COLUMN[field];
+  matchInfo[column] = val; // optimistic
+  render();
+  const { error } = await sbClient.from('match_info').update({ [column]: val }).eq('id', 1);
+  setStatus(error ? 'Could not save — try again' : 'Match info saved');
+}
+
+/* ---------- Players ---------- */
+/* Admin: add guest players, remove anyone.
+   Anyone signed in: mark only their own attendance (group auto-assigned),
+   and move ANY player between Group A / Group B. */
+async function addPlayer(){
+  if(!isAdmin) return;
+  const input = document.getElementById('newPlayerInput');
+  const groupSelect = document.getElementById('newPlayerGroup');
+  const name = input.value.trim();
+  if(!name) return;
+  const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
+  const { error } = await sbClient.from('players').insert({
+    display_name: name,
+    attend: chosenGroup ? 'yes' : null,
+    group_name: chosenGroup
+  });
+  if(error){
+    console.error('addPlayer failed:', error);
+    setStatus('Could not add player — ' + (error.message || 'unknown error'));
+    return; // keep the typed name so nothing is lost on failure
+  }
+  input.value = '';
+  groupSelect.value = '';
+  setStatus(chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added');
+}
+
+async function setAttend(id, val){
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  if(!isAdmin && id !== myPlayerId) return; // everyone else can only mark themselves
+  const newAttend = (p.attend === val) ? null : val;
+  const patch = { attend: newAttend };
+  if(newAttend !== 'yes') patch.group_name = null;
+
+  // optimistic local update so the UI feels instant
+  p.attend = newAttend;
+  if(newAttend !== 'yes') p.group_name = null;
+  render();
+
+  const { error } = await sbClient.from('players').update(patch).eq('id', id);
+  if(error){ setStatus('Could not save — try again'); return; }
+  if(newAttend === 'yes' && !p.group_name){
+    await autoAssignGroup(id);
+  }
+}
+
+async function autoAssignGroup(id){
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  const countA = yesPlayers.filter(p=>p.group_name==='A').length;
+  const countB = yesPlayers.filter(p=>p.group_name==='B').length;
+  const group = countA <= countB ? 'A' : 'B';
+  const p = players.find(p=>p.id===id);
+  if(p) p.group_name = group;
+  render();
+  await sbClient.from('players').update({ group_name: group }).eq('id', id);
+}
+
+async function removePlayer(id){
+  if(!isAdmin) return;
+  const { error } = await sbClient.from('players').delete().eq('id', id);
+  setStatus(error ? 'Could not remove player' : 'Player removed');
+}
+
+async function swapGroup(id){
+  // Any signed-in user can move any player between Group A and Group B.
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const newGroup = p.group_name === 'A' ? 'B' : 'A';
+  p.group_name = newGroup;
+  render();
+  const { error } = await sbClient.from('players').update({ group_name: newGroup }).eq('id', id);
+  if(error) setStatus('Could not move player');
+}
+
+async function resetPlayers(){
+  if(!isAdmin) return;
+  if(!confirm('Reset attendance for every player? Everyone goes back to unmarked with no group. The roster names stay.')) return;
+  players.forEach(p => { p.attend = null; p.group_name = null; });
+  render();
+  const { error } = await sbClient.from('players')
+    .update({ attend: null, group_name: null })
+    .not('id', 'is', null);
+  setStatus(error ? 'Could not reset players' : 'Players reset');
+}
+
+/* ---------- Balance (admin sets/edits; everyone can see everyone's) ---------- */
+async function setBalance(id, newBalance){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const val = Math.round(newBalance * 100) / 100;
+  p.balance = val; // optimistic
+  render();
+  const { error } = await sbClient.from('players').update({ balance: val }).eq('id', id);
+  setStatus(error ? 'Could not save balance — try again' : `Balance updated for ${p.display_name}`);
+}
+
+function editBalance(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const input = window.prompt(`Set balance for ${p.display_name} (Rs.)`, Number(p.balance || 0));
+  if(input === null) return;
+  const val = parseFloat(input);
+  if(isNaN(val)){ setStatus('Enter a valid number'); return; }
+  setBalance(id, val);
+}
+
+function addBalance(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const input = window.prompt(`Add how much to ${p.display_name}'s balance? (Rs.)`, '500');
+  if(input === null) return;
+  const amount = parseFloat(input);
+  if(isNaN(amount)){ setStatus('Enter a valid number'); return; }
+  setBalance(id, Number(p.balance || 0) + amount);
+}
+
+async function toggleRenewReminder(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const newVal = !p.payment_reminder;
+  p.payment_reminder = newVal; // optimistic
+  render();
+  const { error } = await sbClient.from('players').update({ payment_reminder: newVal }).eq('id', id);
+  if(error){ setStatus('Could not update reminder — try again'); return; }
+  setStatus(newVal ? `Renew payment reminder sent to ${p.display_name}` : `Reminder cancelled for ${p.display_name}`);
+}
+
+/* ---------- Render ---------- */
+function render(){
+  if(!loaded) return;
+
+  document.getElementById('venueDisplay').textContent = matchInfo.venue;
+  document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
+
+  const rosterList = document.getElementById('rosterList');
+  rosterList.innerHTML = '';
+  document.getElementById('rosterCount').textContent = players.length ? `(${players.length})` : '';
+
+  if(players.length === 0){
+    rosterList.innerHTML = '<div class="empty-note">No players yet.</div>';
+  }
+
+  players.forEach((p, idx)=>{
+    const row = document.createElement('div');
+    row.className = 'player-row';
+
+    const squadNum = document.createElement('span');
+    squadNum.className = 'squad-num';
+    squadNum.textContent = idx + 1;
+
+    const groupTag = document.createElement('span');
+    groupTag.className = 'group-tag' + (p.group_name ? ' '+p.group_name : '');
+    groupTag.textContent = p.group_name || '·';
+    if(p.group_name){
+      groupTag.title = 'Tap to swap group';
+      groupTag.onclick = ()=>swapGroup(p.id);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'player-name';
+    name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+
+    const toggles = document.createElement('div');
+    toggles.className = 'toggle-pair';
+    const canToggle = isAdmin || p.id === myPlayerId;
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'toggle-btn yes' + (p.attend==='yes' ? ' active' : '');
+    yesBtn.textContent = 'YES';
+    if(canToggle) yesBtn.onclick = ()=>setAttend(p.id,'yes'); else yesBtn.disabled = true;
+    const noBtn = document.createElement('button');
+    noBtn.className = 'toggle-btn no' + (p.attend==='no' ? ' active' : '');
+    noBtn.textContent = 'NO';
+    if(canToggle) noBtn.onclick = ()=>setAttend(p.id,'no'); else noBtn.disabled = true;
+    toggles.appendChild(yesBtn);
+    toggles.appendChild(noBtn);
+
+    row.appendChild(squadNum);
+    row.appendChild(groupTag);
+    row.appendChild(name);
+    row.appendChild(toggles);
+
+    if(isAdmin){
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove player';
+      removeBtn.onclick = ()=>removePlayer(p.id);
+      row.appendChild(removeBtn);
+    }
+    rosterList.appendChild(row);
+  });
+
+  // Balance section — everyone can see everyone's balance; only admin
+  // can edit amounts or send a "renew payment" reminder.
+  const balanceList = document.getElementById('balanceList');
+  balanceList.innerHTML = '';
+  if(players.length === 0){
+    balanceList.innerHTML = '<div class="empty-note">No players yet.</div>';
+  }
+  players.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'balance-row';
+
+    const name = document.createElement('span');
+    name.className = 'balance-name';
+    name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+
+    const bal = Number(p.balance || 0);
+    const amount = document.createElement('span');
+    amount.className = 'balance-amount' + (bal <= 0 ? ' low' : '') + (isAdmin ? ' editable' : '');
+    amount.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
+    if(isAdmin){
+      amount.title = 'Tap to set balance';
+      amount.onclick = ()=>editBalance(p.id);
+    }
+
+    row.appendChild(name);
+    row.appendChild(amount);
+
+    if(isAdmin){
+      const addBtn = document.createElement('button');
+      addBtn.className = 'balance-add-btn';
+      addBtn.textContent = '+ Add';
+      addBtn.title = 'Add to balance';
+      addBtn.onclick = ()=>addBalance(p.id);
+      row.appendChild(addBtn);
+
+      const renewBtn = document.createElement('button');
+      renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');
+      renewBtn.textContent = p.payment_reminder ? 'Reminder sent' : 'Send renew payment';
+      renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
+      renewBtn.onclick = ()=>toggleRenewReminder(p.id);
+      row.appendChild(renewBtn);
+    }
+
+    balanceList.appendChild(row);
+  });
+
+  // Groups section
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  const groupsWrap = document.getElementById('groupsWrap');
+  if(yesPlayers.length === 0){
+    groupsWrap.style.display = 'none';
+  } else {
+    groupsWrap.style.display = 'block';
+    const aList = document.getElementById('groupAList');
+    const bList = document.getElementById('groupBList');
+    aList.innerHTML = '';
+    bList.innerHTML = '';
+    yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='move →';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
+      aList.appendChild(li);
+    });
+    yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='← move';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
+      bList.appendChild(li);
+    });
+  }
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ---------- PDF (print) ---------- */
+function downloadPDF(){
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  document.getElementById('printMeta').textContent =
+    `Venue: ${matchInfo.venue}   •   Date & Kick-off: ${matchInfo.kickoff_time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
+  const printA = document.getElementById('printA');
+  const printB = document.getElementById('printB');
+  printA.innerHTML = '';
+  printB.innerHTML = '';
+  yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.display_name; printA.appendChild(li);
+  });
+  yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.display_name; printB.appendChild(li);
+  });
+  window.print();
+}
+
+</script>
+
+</body>
+</html>

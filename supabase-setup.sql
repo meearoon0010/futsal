@@ -112,29 +112,40 @@ drop policy if exists "admin deletes player" on public.players;
 create policy "admin deletes player" on public.players
   for delete using ( lower(auth.jwt() ->> 'email') = 'whitewalkerofnorth@gmail.com' );
 
--- The admin can update any row; a user can update their own row
--- (the trigger below stops a non-admin from renaming themselves or
---  reassigning the row to someone else)
+-- Any signed-in user can update any row (the trigger below is what
+-- actually limits WHAT they're allowed to change on a row that isn't
+-- theirs — see step 4).
 drop policy if exists "admin or self updates player" on public.players;
-create policy "admin or self updates player" on public.players
+drop policy if exists "signed-in users update players" on public.players;
+create policy "signed-in users update players" on public.players
   for update using (
-    lower(auth.jwt() ->> 'email') = 'whitewalkerofnorth@gmail.com'
-    or auth.uid() = user_id
+    auth.role() = 'authenticated'
   ) with check (
-    lower(auth.jwt() ->> 'email') = 'whitewalkerofnorth@gmail.com'
-    or auth.uid() = user_id
+    auth.role() = 'authenticated'
   );
 
--- 4. Guard trigger: non-admins may only ever change attend/group_name
+-- 4. Guard trigger — field-level permissions, enforced regardless of the
+--    table-level policy above:
+--      * display_name / user_id: admin only, ever.
+--      * attend (yes/no): admin, or the row's own owner.
+--      * group_name (Group A / Group B): admin, owner, or ANY other
+--        signed-in user — this is what lets anyone move any player
+--        between groups from the roster/teams UI.
 create or replace function public.guard_player_update()
 returns trigger
 language plpgsql
 security definer
 as $$
+declare
+  is_admin boolean := lower(auth.jwt() ->> 'email') = 'whitewalkerofnorth@gmail.com';
+  is_owner boolean := auth.uid() = old.user_id;
 begin
-  if lower(auth.jwt() ->> 'email') is distinct from 'whitewalkerofnorth@gmail.com' then
+  if not is_admin then
     new.display_name := old.display_name;
     new.user_id := old.user_id;
+    if not is_owner then
+      new.attend := old.attend; -- only admin/owner can change attendance
+    end if;
   end if;
   return new;
 end;

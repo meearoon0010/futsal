@@ -55,7 +55,12 @@ that up if you'd like.
 
 The app now requires signing in before use, via Supabase Auth:
 
-- **Log In** — email + password.
+- **Log In** — email + password, with a "Remember me" checkbox. Checking it
+  saves the email and password in that browser's `localStorage` and
+  pre-fills them next time, so returning players don't have to retype their
+  password. Leaving it unchecked (or unticking it on a later login) clears
+  any previously saved credentials on that browser. Since this stores the
+  password in plain text in the browser, only use it on a personal device.
 - **Create Account** — email, display name, password, confirm password.
 
 It's wired to this Supabase project:
@@ -74,8 +79,9 @@ roster synced live across everyone's devices next.
 
 ## Roles
 
-- **Admin** (`whitewalkerofnorth@gmail.com`, shown as "ARUN"): can edit venue/time, add guest players, remove any player, move any player between Group A/B, and reset attendance for everyone.
-- **Everyone else**: automatically appears in the roster under their own signed-in display name, can mark only their own YES/NO, and can view the roster, groups, and download the attendance PDF — they cannot edit match info, add/remove players, or move anyone between groups.
+- **Admin** (`whitewalkerofnorth@gmail.com`, shown as "ARUN"): can edit venue/time, add guest players, remove any player, and reset attendance for everyone.
+- **Everyone else**: automatically appears in the roster under their own signed-in display name, can mark only their own YES/NO, and can view the roster, groups, and download the attendance PDF — they cannot edit match info or add/remove players.
+- **Moving players between Group A / Group B** is open to anyone signed in (not just the admin) — tap a player's group tag in the roster, or use the "move →" / "← move" buttons in the Teams section.
 
 Roles are determined by the logged-in email matching the admin address above, and enforced both in the UI and at the database level via Row Level Security (see the setup section below) — so the restriction holds even if someone bypasses the UI.
 
@@ -138,4 +144,12 @@ silently. Re-run the latest `supabase-setup.sql` in the SQL Editor to pick
 up this fix — it's safe to run again even if you've already run an
 earlier version. Guest players added this way still never need an
 account — user_id is simply left blank for them.
+
+## Group moves opened up to everyone
+
+Previously only the admin could move a player between Group A and Group B.
+The database policy and its guard trigger were updated so any signed-in
+user can change a player's `group_name` (attendance and profile fields are
+still admin/owner-only). Re-run the latest `supabase-setup.sql` in the SQL
+Editor to pick up this change — it's safe to run again.
 

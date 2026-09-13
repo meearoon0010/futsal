@@ -410,6 +410,22 @@
     outline:none;
   }
   .auth-field input:focus{border-color:var(--turf-bright);}
+  .remember-me{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:-4px 0 14px;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    user-select:none;
+  }
+  .remember-me input{
+    width:15px;
+    height:15px;
+    accent-color:var(--turf-bright);
+    cursor:pointer;
+  }
   .auth-submit{
     width:100%;
     background:var(--amber);
@@ -569,6 +585,10 @@
         <label for="loginPassword">Password</label>
         <input type="password" id="loginPassword" autocomplete="current-password" required>
       </div>
+      <label class="remember-me">
+        <input type="checkbox" id="rememberMe">
+        <span>Remember me</span>
+      </label>
       <button type="submit" class="auth-submit" id="loginBtn">Log In</button>
       <div class="auth-switch">No account? <button type="button" onclick="showSignup()">Create one</button></div>
     </form>
@@ -719,16 +739,41 @@ function showSignup(){
   setAuthMsg('');
 }
 
+/* ---------- Remember me (stores email + password in this browser only) ---------- */
+const REMEMBER_KEY = 'futsalRememberedLogin';
+
+function loadRememberedLogin(){
+  try{
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if(!raw) return;
+    const { email, password } = JSON.parse(raw);
+    document.getElementById('loginEmail').value = email || '';
+    document.getElementById('loginPassword').value = password || '';
+    document.getElementById('rememberMe').checked = true;
+  }catch(e){ /* ignore malformed/blocked storage */ }
+}
+
+function saveRememberedLogin(email, password){
+  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email, password })); }
+  catch(e){ /* storage unavailable — fail silently, login still works */ }
+}
+
+function clearRememberedLogin(){
+  try{ localStorage.removeItem(REMEMBER_KEY); }catch(e){}
+}
+
 async function handleLogin(e){
   e.preventDefault();
   setAuthMsg('');
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
+  const remember = document.getElementById('rememberMe').checked;
   const btn = document.getElementById('loginBtn');
   btn.disabled = true; btn.textContent = 'Logging in…';
   const { error } = await sbClient.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = 'Log In';
   if(error){ setAuthMsg(error.message, 'error'); return; }
+  if(remember){ saveRememberedLogin(email, password); } else { clearRememberedLogin(); }
   // onAuthStateChange handles showing the app
 }
 
@@ -835,6 +880,7 @@ sbClient.auth.onAuthStateChange((_event, session) => {
     showApp(session.user);
   } else {
     showAuthScreen();
+    loadRememberedLogin();
   }
 });
 
@@ -937,8 +983,9 @@ async function finishEdit(field){
 }
 
 /* ---------- Players ---------- */
-/* Admin: add guest players, remove anyone, move anyone between groups.
-   Everyone else: mark only their own attendance; group is auto-assigned. */
+/* Admin: add guest players, remove anyone.
+   Anyone signed in: mark only their own attendance (group auto-assigned),
+   and move ANY player between Group A / Group B. */
 async function addPlayer(){
   if(!isAdmin) return;
   const input = document.getElementById('newPlayerInput');
@@ -999,7 +1046,7 @@ async function removePlayer(id){
 }
 
 async function swapGroup(id){
-  if(!isAdmin) return;
+  // Any signed-in user can move any player between Group A and Group B.
   const p = players.find(p=>p.id===id);
   if(!p) return;
   const newGroup = p.group_name === 'A' ? 'B' : 'A';
@@ -1042,7 +1089,7 @@ function render(){
     const groupTag = document.createElement('span');
     groupTag.className = 'group-tag' + (p.group_name ? ' '+p.group_name : '');
     groupTag.textContent = p.group_name || '·';
-    if(p.group_name && isAdmin){
+    if(p.group_name){
       groupTag.title = 'Tap to swap group';
       groupTag.onclick = ()=>swapGroup(p.id);
     }
@@ -1094,23 +1141,19 @@ function render(){
     yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
       const li = document.createElement('li');
       li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
-      if(isAdmin){
-        const swap = document.createElement('button');
-        swap.className='swap-btn'; swap.textContent='move →';
-        swap.onclick = ()=>swapGroup(p.id);
-        li.appendChild(swap);
-      }
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='move →';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
       aList.appendChild(li);
     });
     yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
       const li = document.createElement('li');
       li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
-      if(isAdmin){
-        const swap = document.createElement('button');
-        swap.className='swap-btn'; swap.textContent='← move';
-        swap.onclick = ()=>swapGroup(p.id);
-        li.appendChild(swap);
-      }
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='← move';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
       bList.appendChild(li);
     });
   }

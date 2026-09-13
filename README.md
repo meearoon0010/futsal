@@ -139,3 +139,22 @@ up this fix — it's safe to run again even if you've already run an
 earlier version. Guest players added this way still never need an
 account — user_id is simply left blank for them.
 
+## If "Add player" still doesn't work
+
+The updated `supabase-setup.sql` now also explicitly grants the
+`authenticated` role INSERT/UPDATE/DELETE on both tables. This matters
+because RLS policies only decide *which rows* a role can touch — the role
+also needs baseline table permission, which isn't always set up
+automatically for tables created directly in the SQL Editor (as opposed
+to through the Supabase Table Editor UI). Missing this grant causes every
+write to fail with "permission denied for table players," regardless of
+how correct the RLS policies are.
+
+**Please re-run the latest `supabase-setup.sql` in the SQL Editor.**
+
+The app itself now also shows the *exact* database error on screen (in
+red, and it stays visible instead of disappearing after two seconds) if
+adding a player fails — so if it still doesn't work after re-running the
+SQL, whatever error message appears next to the Add button is the one to
+share for further debugging.
+

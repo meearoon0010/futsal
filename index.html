@@ -323,6 +323,12 @@
     color:var(--muted);
     margin-top:4px;
     min-height:14px;
+    display:block;
+    max-width:420px;
+  }
+  .status-msg.is-error{
+    color:var(--red);
+    font-weight:700;
   }
 
   /* ---------- Print / PDF view ---------- */
@@ -906,10 +912,14 @@ function subscribeRealtime(){
     .subscribe();
 }
 
-function setStatus(msg){
+function setStatus(msg, isError){
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
-  setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
+  el.classList.toggle('is-error', !!isError);
+  if(!isError){
+    setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
+  }
+  // errors stay on screen until the next action, so there's time to read/report them
 }
 
 /* ---------- Editable match info (admin only) ---------- */
@@ -940,21 +950,32 @@ async function finishEdit(field){
 /* Admin: add guest players, remove anyone, move anyone between groups.
    Everyone else: mark only their own attendance; group is auto-assigned. */
 async function addPlayer(){
-  if(!isAdmin) return;
+  if(!isAdmin){
+    setStatus('Only the admin account can add players.', true);
+    return;
+  }
   const input = document.getElementById('newPlayerInput');
   const groupSelect = document.getElementById('newPlayerGroup');
   const name = input.value.trim();
   if(!name) return;
   const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
-  const { error } = await sbClient.from('players').insert({
+  const { data, error } = await sbClient.from('players').insert({
     display_name: name,
     attend: chosenGroup ? 'yes' : null,
     group_name: chosenGroup
-  });
+  }).select();
   if(error){
     console.error('addPlayer failed:', error);
-    setStatus('Could not add player — ' + (error.message || 'unknown error'));
+    setStatus('Could not add player — ' + (error.message || error.code || 'unknown error'), true);
     return; // keep the typed name so nothing is lost on failure
+  }
+  if(!data || data.length === 0){
+    // Insert reported no error but nothing came back — this shape is the
+    // classic symptom of a Row Level Security policy silently filtering
+    // the row rather than throwing an error.
+    console.warn('addPlayer: insert returned no row — likely blocked by RLS.');
+    setStatus('Player wasn\'t saved — check the admin insert policy in Supabase (RLS may be blocking it).', true);
+    return;
   }
   input.value = '';
   groupSelect.value = '';

@@ -212,3 +212,67 @@ migration having actually run — it works either way.
 **Re-run the latest `supabase-setup.sql`** once more (safe on top of
 everything else), then try adding a player from the admin account again.
 
+## Confirmed: guest players never need an account
+
+To be explicit: admin-added players were always designed to skip
+authentication entirely — `user_id` is nullable on the `players` table
+specifically so a guest with no login can still be tracked. That part
+was never the problem.
+
+## Fixed: script aborting silently partway through
+
+The real recurring issue was that the SQL script was likely failing on
+the `CHECK` constraint step (if any leftover row had an `attend` or
+`group_name` value outside `'yes'/'no'` or `'A'/'B'`), which aborts the
+*entire* script — meaning every fix below that point, including the
+`admin_add_player` update, never actually got created in your database
+even though you re-ran the file.
+
+The script now sanitizes any such legacy values to `null` right before
+adding those constraints, so this can no longer block the rest of the
+script from completing. The realtime-publication step was also hardened
+to never halt the script on an unexpected error.
+
+**Run the latest `supabase-setup.sql` once more.** To confirm it fully
+completed this time, run this check afterward:
+
+```sql
+select proname from pg_proc
+where pronamespace = 'public'::regnamespace
+  and proname in ('admin_add_player','admin_remove_player','admin_set_group',
+                   'admin_set_attend','admin_reset_players',
+                   'admin_update_match_info','ensure_self_player')
+order by proname;
+```
+
+If all 7 names come back, the fix is live — try "Add player" again.
+
+## Fixed: users who click YES weren't appearing in the roster/group
+
+Root cause: before `ensure_self_player` existed (a few fixes ago), any
+regular user's very first login silently failed to create their roster
+row (same "team" column issue as admin's add-player problem). Once that
+happens, clicking YES on the "Are you playing?" prompt has no row to
+update, so nothing visibly happens — no error, no group assignment, no
+roster entry.
+
+Two things fixed this:
+1. Re-running the latest `supabase-setup.sql` means `ensure_self_player`
+   now exists, so **new** logins create a row correctly going forward.
+2. The app itself now self-heals for anyone who logged in *before* that
+   fix was in place: if it ever detects your own roster row is missing —
+   when the prompt would show, or when you tap YES/NO — it automatically
+   retries creating your row on the spot instead of silently doing
+   nothing. So existing users don't need to do anything special; their
+   next YES/NO tap will create their row and register their answer in
+   the same action.
+
+If someone still doesn't show up after this, check with the diagnostic
+query below whether their row exists at all:
+
+```sql
+select id, user_id, display_name, attend, group_name from public.players
+where user_id is not null
+order by created_at desc;
+```
+

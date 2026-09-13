@@ -202,6 +202,18 @@
     font-weight:600;
     color:var(--chalk);
   }
+  .guest-tag{
+    display:inline-block;
+    margin-left:7px;
+    font-size:9px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    color:var(--muted);
+    border:1px solid var(--line);
+    padding:1px 5px;
+    text-transform:uppercase;
+    vertical-align:middle;
+  }
   .group-tag{
     font-size:11px;
     font-weight:800;
@@ -660,15 +672,12 @@
       <option value="A">Group A</option>
       <option value="B">Group B</option>
     </select>
-    <button onclick="addPlayer()">Add guest</button>
+    <button onclick="addPlayer()">Add player</button>
   </div>
-  <div class="add-row-note admin-only">Guests don't need an account — just a name.</div>
+  <div class="add-row-note admin-only">No account needed — just enter a name.</div>
 
   <div class="section-title">Players <span class="count" id="rosterCount"></span></div>
   <div class="roster" id="rosterList"></div>
-
-  <div class="section-title guest-section-title" id="guestSectionTitle" style="display:none">Guests <span class="count" id="guestCount"></span></div>
-  <div class="roster" id="guestList"></div>
 
   <div class="groups-wrap" id="groupsWrap" style="display:none">
     <div class="section-title">Teams — Confirmed Players</div>
@@ -1157,6 +1166,12 @@ function buildPlayerRow(p){
   const name = document.createElement('span');
   name.className = 'player-name';
   name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+  if(!p.user_id){
+    const guestTag = document.createElement('span');
+    guestTag.className = 'guest-tag';
+    guestTag.textContent = 'Guest';
+    name.appendChild(guestTag);
+  }
 
   const toggles = document.createElement('div');
   toggles.className = 'toggle-pair';
@@ -1193,30 +1208,13 @@ function render(){
   document.getElementById('venueDisplay').textContent = matchInfo.venue;
   document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
 
-  // Signed-in players (have an account) vs guests (added by admin, no account)
-  const signedInPlayers = players.filter(p => p.user_id);
-  const guestPlayers = players.filter(p => !p.user_id);
-
   const rosterList = document.getElementById('rosterList');
   rosterList.innerHTML = '';
-  document.getElementById('rosterCount').textContent = signedInPlayers.length ? `(${signedInPlayers.length})` : '';
-  if(signedInPlayers.length === 0){
-    rosterList.innerHTML = '<div class="empty-note">No one has signed in yet.</div>';
+  document.getElementById('rosterCount').textContent = players.length ? `(${players.length})` : '';
+  if(players.length === 0){
+    rosterList.innerHTML = '<div class="empty-note">No players yet.</div>';
   }
-  signedInPlayers.forEach(p => rosterList.appendChild(buildPlayerRow(p)));
-
-  const guestList = document.getElementById('guestList');
-  const guestSectionTitle = document.getElementById('guestSectionTitle');
-  guestList.innerHTML = '';
-  if(guestPlayers.length === 0){
-    guestSectionTitle.style.display = 'none';
-    guestList.style.display = 'none';
-  } else {
-    guestSectionTitle.style.display = 'block';
-    guestList.style.display = 'block';
-    document.getElementById('guestCount').textContent = `(${guestPlayers.length})`;
-    guestPlayers.forEach(p => guestList.appendChild(buildPlayerRow(p)));
-  }
+  players.forEach(p => rosterList.appendChild(buildPlayerRow(p)));
 
   // Groups section
   const yesPlayers = players.filter(p=>p.attend==='yes');

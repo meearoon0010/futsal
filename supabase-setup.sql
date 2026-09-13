@@ -48,6 +48,8 @@ alter table public.players alter column display_name set not null;
 alter table public.players add column if not exists attend text;
 alter table public.players add column if not exists group_name text;
 alter table public.players add column if not exists created_at timestamptz not null default now();
+alter table public.players add column if not exists balance numeric(10,2) not null default 0;
+alter table public.players add column if not exists payment_reminder boolean not null default false;
 
 -- Neutralize ANY other NOT NULL columns already on this table that our
 -- inserts don't set (e.g. a leftover "team" column from an earlier
@@ -63,7 +65,7 @@ begin
     where table_schema = 'public'
       and table_name = 'players'
       and is_nullable = 'no'
-      and column_name not in ('id', 'display_name', 'created_at')
+      and column_name not in ('id', 'display_name', 'created_at', 'balance', 'payment_reminder')
   loop
     execute format('alter table public.players alter column %I drop not null', col.column_name);
   end loop;
@@ -127,10 +129,15 @@ create policy "signed-in users update players" on public.players
 -- 4. Guard trigger — field-level permissions, enforced regardless of the
 --    table-level policy above:
 --      * display_name / user_id: admin only, ever.
+--      * balance: admin only, ever — this is the payment ledger, so no
+--        one (not even the row's own owner) may change their own number.
 --      * attend (yes/no): admin, or the row's own owner.
 --      * group_name (Group A / Group B): admin, owner, or ANY other
 --        signed-in user — this is what lets anyone move any player
 --        between groups from the roster/teams UI.
+--      * payment_reminder: admin sets it to send a "renew payment" popup;
+--        the row's own owner may only clear it (dismiss), never set it —
+--        so a player can't pop the reminder for themselves or others.
 create or replace function public.guard_player_update()
 returns trigger
 language plpgsql
@@ -143,8 +150,14 @@ begin
   if not is_admin then
     new.display_name := old.display_name;
     new.user_id := old.user_id;
-    if not is_owner then
+    new.balance := old.balance;
+    if is_owner then
+      if old.payment_reminder is distinct from true then
+        new.payment_reminder := old.payment_reminder; -- owner can dismiss, not create
+      end if;
+    else
       new.attend := old.attend; -- only admin/owner can change attendance
+      new.payment_reminder := old.payment_reminder; -- only admin/owner can touch this row's reminder
     end if;
   end if;
   return new;

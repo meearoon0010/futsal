@@ -153,3 +153,27 @@ user can change a player's `group_name` (attendance and profile fields are
 still admin/owner-only). Re-run the latest `supabase-setup.sql` in the SQL
 Editor to pick up this change — it's safe to run again.
 
+## Balance table
+
+The homepage now shows every player's balance (in Rs.), right below the
+roster:
+
+- **Everyone** can see everyone's balance.
+- **Only the admin** can change a balance — tap the amount to set it to an
+  exact figure, or use "+ Add" to top it up by an amount you type in.
+- **Only the admin** can send a **"Send renew payment"** reminder for a
+  player. Doing so pops a "Renew payment" message for that player the next
+  time they open the app (or right after they close the "Are you playing?"
+  prompt, if that's showing too — only one popup shows at a time). The
+  player dismissing it with "Got it" clears the reminder; the admin can
+  also cancel it early by tapping "Reminder sent" again.
+- Balances at or below zero are shown in red, and non-admins see a small
+  "Renew payment" tag next to their own or anyone else's zeroed-out
+  balance.
+
+This is enforced at the database level too: only the admin can change a
+`balance` value, and only the admin can raise a `payment_reminder` — a
+player can dismiss their own reminder but never set one for themselves or
+anyone else. Re-run the latest `supabase-setup.sql` to pick up the new
+`balance` / `payment_reminder` columns and policies.
+

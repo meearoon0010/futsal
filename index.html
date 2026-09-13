@@ -786,7 +786,6 @@ let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM' };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let myUserId = null;
 let myPlayerId = null;
-let myDisplayName = null;
 let loaded = false;
 let realtimeChannel = null;
 let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
@@ -801,7 +800,6 @@ async function showApp(user){
   isAdmin = email === ADMIN_EMAIL;
   myUserId = user.id;
   const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
-  myDisplayName = displayName;
   const whoAmI = document.getElementById('whoAmI');
   whoAmI.textContent = displayName;
   const existingBadge = whoAmI.parentElement.querySelector('.admin-badge');
@@ -870,31 +868,14 @@ async function loadAllData(){
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
   render();
-  await maybeShowAttendPrompt();
+  maybeShowAttendPrompt();
 }
 
 /* Ask "are you playing?" right after login (or right after admin resets
    attendance), unless the player already answered or dismissed it. */
-async function maybeShowAttendPrompt(){
+function maybeShowAttendPrompt(){
   const modal = document.getElementById('attendModal');
-  let mine = players.find(p => p.id === myPlayerId);
-
-  if(!mine && myUserId && myDisplayName){
-    // Our own roster row is missing — self-registration must have failed
-    // earlier. Retry it now instead of silently never showing the prompt.
-    console.warn('maybeShowAttendPrompt: my player row is missing, retrying self-registration.');
-    await ensureMyPlayerRow(myDisplayName);
-    if(myPlayerId){
-      const { data } = await sbClient.from('players').select('*').eq('id', myPlayerId).maybeSingle();
-      if(data){
-        mine = data;
-        const idx = players.findIndex(p => p.id === data.id);
-        if(idx >= 0) players[idx] = data; else players.push(data);
-        render();
-      }
-    }
-  }
-
+  const mine = players.find(p => p.id === myPlayerId);
   if(!mine){ modal.style.display = 'none'; return; }
 
   if(mine.attend !== null){
@@ -917,16 +898,7 @@ async function maybeShowAttendPrompt(){
 async function answerAttendance(val){
   document.getElementById('attendModal').style.display = 'none';
   attendPromptDismissed = false;
-  if(!myPlayerId && myDisplayName){
-    // Same self-heal: if our row never got created, create it now rather
-    // than silently doing nothing when the button is clicked.
-    await ensureMyPlayerRow(myDisplayName);
-  }
-  if(myPlayerId){
-    await setAttend(myPlayerId, val);
-  } else {
-    setStatus('Could not set up your player row — please refresh and try again.', true);
-  }
+  if(myPlayerId) await setAttend(myPlayerId, val);
 }
 
 function dismissAttendModal(){
@@ -1020,11 +992,7 @@ async function addPlayer(){
 
 async function setAttend(id, val){
   const p = players.find(p=>p.id===id);
-  if(!p){
-    console.warn('setAttend: no local player row for id', id);
-    setStatus('Could not find your player row — try refreshing the page.', true);
-    return;
-  }
+  if(!p) return;
   if(!isAdmin && id !== myPlayerId) return; // everyone else can only mark themselves
   const newAttend = (p.attend === val) ? null : val;
 

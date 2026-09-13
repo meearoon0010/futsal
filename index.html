@@ -148,11 +148,6 @@
     outline:none;
   }
   .add-row select:focus{border-color:var(--turf-bright);}
-  .add-row-note{
-    font-size:11px;
-    color:var(--muted);
-    margin:-6px 0 14px;
-  }
   .add-row button{
     background:var(--turf-bright);
     color:#08130c;
@@ -328,24 +323,7 @@
     color:var(--muted);
     margin-top:4px;
     min-height:14px;
-    display:block;
-    max-width:420px;
   }
-  .status-msg.is-error{
-    color:var(--red);
-    font-weight:700;
-  }
-
-  .fatal-banner{
-    background:rgba(199,58,58,0.16);
-    border:1px solid var(--red);
-    color:var(--chalk);
-    padding:12px 14px;
-    font-size:13px;
-    line-height:1.5;
-    margin-bottom:16px;
-  }
-  .fatal-banner strong{color:var(--red);}
 
   /* ---------- Print / PDF view ---------- */
   #printable{display:none;}
@@ -630,8 +608,6 @@
     <button class="logout-btn" onclick="handleLogout()">Log Out</button>
   </div>
 
-  <div class="fatal-banner" id="fatalBanner" style="display:none"></div>
-
   <div class="masthead">
     <h1>FUTSAL</h1>
     <div class="tagline">Squad<br>Attendance</div>
@@ -653,22 +629,18 @@
     </div>
   </div>
 
-  <div class="add-row admin-only">
-    <input type="text" id="newPlayerInput" placeholder="Add guest player name" onkeydown="if(event.key==='Enter')addPlayer()">
+  <div class="add-row">
+    <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
     <select id="newPlayerGroup" title="Assign to a group (optional)">
       <option value="">No group yet</option>
       <option value="A">Group A</option>
       <option value="B">Group B</option>
     </select>
-    <button onclick="addPlayer()">Add guest</button>
+    <button onclick="addPlayer()">Add</button>
   </div>
-  <div class="add-row-note admin-only">Guests don't need an account — just a name.</div>
 
-  <div class="section-title">Players <span class="count" id="rosterCount"></span></div>
+  <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
   <div class="roster" id="rosterList"></div>
-
-  <div class="section-title guest-section-title" id="guestSectionTitle" style="display:none">Guests <span class="count" id="guestCount"></span></div>
-  <div class="roster" id="guestList"></div>
 
   <div class="groups-wrap" id="groupsWrap" style="display:none">
     <div class="section-title">Teams — Confirmed Players</div>
@@ -808,7 +780,6 @@ let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM' };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let myUserId = null;
 let myPlayerId = null;
-let myDisplayName = null;
 let loaded = false;
 let realtimeChannel = null;
 let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
@@ -823,7 +794,6 @@ async function showApp(user){
   isAdmin = email === ADMIN_EMAIL;
   myUserId = user.id;
   const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
-  myDisplayName = displayName;
   const whoAmI = document.getElementById('whoAmI');
   whoAmI.textContent = displayName;
   const existingBadge = whoAmI.parentElement.querySelector('.admin-badge');
@@ -868,27 +838,15 @@ sbClient.auth.onAuthStateChange((_event, session) => {
   }
 });
 
-/* ensure the signed-in user has their own row in the shared roster
-   (goes through a SECURITY DEFINER function so it can't be blocked by
-   the same kind of RLS/legacy-column issue admin actions hit) */
+/* ensure the signed-in user has their own row in the shared roster */
 async function ensureMyPlayerRow(displayName){
-  const { data, error } = await sbClient.rpc('ensure_self_player', { p_display_name: displayName });
-  const banner = document.getElementById('fatalBanner');
-  if(error){
-    console.error('ensureMyPlayerRow failed:', error);
-    setStatus('Could not set up your player row — ' + (error.message || error.code || 'unknown error'), true);
-    banner.innerHTML =
-      '<strong>Your player row couldn\'t be created.</strong> ' +
-      'This usually means the Supabase setup SQL hasn\'t fully run yet, ' +
-      'or an old cached version of this page is loaded. Ask the admin to ' +
-      're-run <code>supabase-setup.sql</code> in the Supabase SQL Editor, ' +
-      'then do a hard refresh (Ctrl/Cmd+Shift+R) here.<br>' +
-      '<span style="opacity:.75">Details: ' + (error.message || error.code || 'unknown error') + '</span>';
-    banner.style.display = 'block';
-    return;
-  }
-  banner.style.display = 'none';
-  if(data) myPlayerId = data.id;
+  const { data: existing } = await sbClient.from('players').select('id').eq('user_id', myUserId).maybeSingle();
+  if(existing){ myPlayerId = existing.id; return; }
+  const { data, error } = await sbClient.from('players')
+    .insert({ user_id: myUserId, display_name: displayName, attend: null, group_name: null })
+    .select('id')
+    .single();
+  if(!error && data) myPlayerId = data.id;
 }
 
 async function loadAllData(){
@@ -902,31 +860,14 @@ async function loadAllData(){
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
   render();
-  await maybeShowAttendPrompt();
+  maybeShowAttendPrompt();
 }
 
 /* Ask "are you playing?" right after login (or right after admin resets
    attendance), unless the player already answered or dismissed it. */
-async function maybeShowAttendPrompt(){
+function maybeShowAttendPrompt(){
   const modal = document.getElementById('attendModal');
-  let mine = players.find(p => p.id === myPlayerId);
-
-  if(!mine && myUserId && myDisplayName){
-    // Our own roster row is missing — self-registration must have failed
-    // earlier. Retry it now instead of silently never showing the prompt.
-    console.warn('maybeShowAttendPrompt: my player row is missing, retrying self-registration.');
-    await ensureMyPlayerRow(myDisplayName);
-    if(myPlayerId){
-      const { data } = await sbClient.from('players').select('*').eq('id', myPlayerId).maybeSingle();
-      if(data){
-        mine = data;
-        const idx = players.findIndex(p => p.id === data.id);
-        if(idx >= 0) players[idx] = data; else players.push(data);
-        render();
-      }
-    }
-  }
-
+  const mine = players.find(p => p.id === myPlayerId);
   if(!mine){ modal.style.display = 'none'; return; }
 
   if(mine.attend !== null){
@@ -949,16 +890,7 @@ async function maybeShowAttendPrompt(){
 async function answerAttendance(val){
   document.getElementById('attendModal').style.display = 'none';
   attendPromptDismissed = false;
-  if(!myPlayerId && myDisplayName){
-    // Same self-heal: if our row never got created, create it now rather
-    // than silently doing nothing when the button is clicked.
-    await ensureMyPlayerRow(myDisplayName);
-  }
-  if(myPlayerId){
-    await setAttend(myPlayerId, val);
-  } else {
-    setStatus('Could not set up your player row — please refresh and try again.', true);
-  }
+  if(myPlayerId) await setAttend(myPlayerId, val);
 }
 
 function dismissAttendModal(){
@@ -974,17 +906,13 @@ function subscribeRealtime(){
     .subscribe();
 }
 
-function setStatus(msg, isError){
+function setStatus(msg){
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
-  el.classList.toggle('is-error', !!isError);
-  if(!isError){
-    setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
-  }
-  // errors stay on screen until the next action, so there's time to read/report them
+  setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
 }
 
-/* ---------- Editable match info (admin only, via RPC) ---------- */
+/* ---------- Editable match info (admin only) ---------- */
 function startEdit(field){
   if(!isAdmin) return;
   const display = document.getElementById(field+'Display');
@@ -1004,82 +932,50 @@ async function finishEdit(field){
   const column = FIELD_TO_COLUMN[field];
   matchInfo[column] = val; // optimistic
   render();
-  const rpcArgs = column === 'venue' ? { p_venue: val, p_kickoff: null } : { p_venue: null, p_kickoff: val };
-  const { error } = await sbClient.rpc('admin_update_match_info', rpcArgs);
-  if(error){
-    console.error('finishEdit failed:', error);
-    setStatus('Could not save — ' + (error.message || error.code || 'unknown error'), true);
-    return;
-  }
-  setStatus('Match info saved');
+  const { error } = await sbClient.from('match_info').update({ [column]: val }).eq('id', 1);
+  setStatus(error ? 'Could not save — try again' : 'Match info saved');
 }
 
 /* ---------- Players ---------- */
-/* Admin actions (add / remove / move / reset) go through SECURITY DEFINER
-   database functions (see supabase-setup.sql) so they work regardless of
-   RLS-policy or GRANT configuration on the base tables — the function
-   itself checks the admin email before doing anything.
-   Everyone else can only mark their own attendance; group auto-assigns. */
+/* Admin: add guest players, remove anyone, move anyone between groups.
+   Everyone else: mark only their own attendance; group is auto-assigned. */
 async function addPlayer(){
-  if(!isAdmin){
-    setStatus('Only the admin account can add players.', true);
-    return;
-  }
+  if(!isAdmin) return;
   const input = document.getElementById('newPlayerInput');
   const groupSelect = document.getElementById('newPlayerGroup');
   const name = input.value.trim();
   if(!name) return;
   const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
-  const { data, error } = await sbClient.rpc('admin_add_player', {
-    p_name: name,
-    p_group: chosenGroup
+  const { error } = await sbClient.from('players').insert({
+    display_name: name,
+    attend: chosenGroup ? 'yes' : null,
+    group_name: chosenGroup
   });
   if(error){
     console.error('addPlayer failed:', error);
-    setStatus('Could not add player — ' + (error.message || error.code || 'unknown error'), true);
+    setStatus('Could not add player — ' + (error.message || 'unknown error'));
     return; // keep the typed name so nothing is lost on failure
-  }
-  if(!data){
-    console.warn('addPlayer: RPC returned no row.');
-    setStatus('Player wasn\'t saved — please try again.', true);
-    return;
   }
   input.value = '';
   groupSelect.value = '';
   setStatus(chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added');
-  await loadAllData(); // realtime will also refresh this, but don't wait on it
 }
 
 async function setAttend(id, val){
   const p = players.find(p=>p.id===id);
-  if(!p){
-    console.warn('setAttend: no local player row for id', id);
-    setStatus('Could not find your player row — try refreshing the page.', true);
-    return;
-  }
+  if(!p) return;
   if(!isAdmin && id !== myPlayerId) return; // everyone else can only mark themselves
   const newAttend = (p.attend === val) ? null : val;
+  const patch = { attend: newAttend };
+  if(newAttend !== 'yes') patch.group_name = null;
 
   // optimistic local update so the UI feels instant
   p.attend = newAttend;
   if(newAttend !== 'yes') p.group_name = null;
   render();
 
-  let error;
-  if(id === myPlayerId){
-    // self-service: normal table write under the "self" RLS policy
-    const patch = { attend: newAttend };
-    if(newAttend !== 'yes') patch.group_name = null;
-    ({ error } = await sbClient.from('players').update(patch).eq('id', id));
-  } else {
-    // admin acting on someone else's row (e.g. a guest with no account)
-    ({ error } = await sbClient.rpc('admin_set_attend', { p_id: id, p_val: newAttend }));
-  }
-  if(error){
-    console.error('setAttend failed:', error);
-    setStatus('Could not save — ' + (error.message || error.code || 'unknown error'), true);
-    return;
-  }
+  const { error } = await sbClient.from('players').update(patch).eq('id', id);
+  if(error){ setStatus('Could not save — try again'); return; }
   if(newAttend === 'yes' && !p.group_name){
     await autoAssignGroup(id);
   }
@@ -1093,23 +989,13 @@ async function autoAssignGroup(id){
   const p = players.find(p=>p.id===id);
   if(p) p.group_name = group;
   render();
-  if(id === myPlayerId){
-    await sbClient.from('players').update({ group_name: group }).eq('id', id);
-  } else {
-    await sbClient.rpc('admin_set_group', { p_id: id, p_group: group });
-  }
+  await sbClient.from('players').update({ group_name: group }).eq('id', id);
 }
 
 async function removePlayer(id){
   if(!isAdmin) return;
-  const { error } = await sbClient.rpc('admin_remove_player', { p_id: id });
-  if(error){
-    console.error('removePlayer failed:', error);
-    setStatus('Could not remove player — ' + (error.message || error.code || 'unknown error'), true);
-    return;
-  }
-  setStatus('Player removed');
-  await loadAllData();
+  const { error } = await sbClient.from('players').delete().eq('id', id);
+  setStatus(error ? 'Could not remove player' : 'Player removed');
 }
 
 async function swapGroup(id){
@@ -1119,11 +1005,8 @@ async function swapGroup(id){
   const newGroup = p.group_name === 'A' ? 'B' : 'A';
   p.group_name = newGroup;
   render();
-  const { error } = await sbClient.rpc('admin_set_group', { p_id: id, p_group: newGroup });
-  if(error){
-    console.error('swapGroup failed:', error);
-    setStatus('Could not move player — ' + (error.message || error.code || 'unknown error'), true);
-  }
+  const { error } = await sbClient.from('players').update({ group_name: newGroup }).eq('id', id);
+  if(error) setStatus('Could not move player');
 }
 
 async function resetPlayers(){
@@ -1131,92 +1014,71 @@ async function resetPlayers(){
   if(!confirm('Reset attendance for every player? Everyone goes back to unmarked with no group. The roster names stay.')) return;
   players.forEach(p => { p.attend = null; p.group_name = null; });
   render();
-  const { error } = await sbClient.rpc('admin_reset_players');
-  if(error){
-    console.error('resetPlayers failed:', error);
-    setStatus('Could not reset players — ' + (error.message || error.code || 'unknown error'), true);
-    return;
-  }
-  setStatus('Players reset');
-  await loadAllData();
+  const { error } = await sbClient.from('players')
+    .update({ attend: null, group_name: null })
+    .not('id', 'is', null);
+  setStatus(error ? 'Could not reset players' : 'Players reset');
 }
 
 /* ---------- Render ---------- */
-function buildPlayerRow(p){
-  const row = document.createElement('div');
-  row.className = 'player-row';
-
-  const groupTag = document.createElement('span');
-  groupTag.className = 'group-tag' + (p.group_name ? ' '+p.group_name : '');
-  groupTag.textContent = p.group_name || '·';
-  if(p.group_name && isAdmin){
-    groupTag.title = 'Tap to swap group';
-    groupTag.onclick = ()=>swapGroup(p.id);
-  }
-
-  const name = document.createElement('span');
-  name.className = 'player-name';
-  name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
-
-  const toggles = document.createElement('div');
-  toggles.className = 'toggle-pair';
-  const canToggle = isAdmin || p.id === myPlayerId;
-  const yesBtn = document.createElement('button');
-  yesBtn.className = 'toggle-btn yes' + (p.attend==='yes' ? ' active' : '');
-  yesBtn.textContent = 'YES';
-  if(canToggle) yesBtn.onclick = ()=>setAttend(p.id,'yes'); else yesBtn.disabled = true;
-  const noBtn = document.createElement('button');
-  noBtn.className = 'toggle-btn no' + (p.attend==='no' ? ' active' : '');
-  noBtn.textContent = 'NO';
-  if(canToggle) noBtn.onclick = ()=>setAttend(p.id,'no'); else noBtn.disabled = true;
-  toggles.appendChild(yesBtn);
-  toggles.appendChild(noBtn);
-
-  row.appendChild(groupTag);
-  row.appendChild(name);
-  row.appendChild(toggles);
-
-  if(isAdmin){
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.textContent = '✕';
-    removeBtn.title = 'Remove player';
-    removeBtn.onclick = ()=>removePlayer(p.id);
-    row.appendChild(removeBtn);
-  }
-  return row;
-}
-
 function render(){
   if(!loaded) return;
 
   document.getElementById('venueDisplay').textContent = matchInfo.venue;
   document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
 
-  // Signed-in players (have an account) vs guests (added by admin, no account)
-  const signedInPlayers = players.filter(p => p.user_id);
-  const guestPlayers = players.filter(p => !p.user_id);
-
   const rosterList = document.getElementById('rosterList');
   rosterList.innerHTML = '';
-  document.getElementById('rosterCount').textContent = signedInPlayers.length ? `(${signedInPlayers.length})` : '';
-  if(signedInPlayers.length === 0){
-    rosterList.innerHTML = '<div class="empty-note">No one has signed in yet.</div>';
-  }
-  signedInPlayers.forEach(p => rosterList.appendChild(buildPlayerRow(p)));
+  document.getElementById('rosterCount').textContent = players.length ? `(${players.length})` : '';
 
-  const guestList = document.getElementById('guestList');
-  const guestSectionTitle = document.getElementById('guestSectionTitle');
-  guestList.innerHTML = '';
-  if(guestPlayers.length === 0){
-    guestSectionTitle.style.display = 'none';
-    guestList.style.display = 'none';
-  } else {
-    guestSectionTitle.style.display = 'block';
-    guestList.style.display = 'block';
-    document.getElementById('guestCount').textContent = `(${guestPlayers.length})`;
-    guestPlayers.forEach(p => guestList.appendChild(buildPlayerRow(p)));
+  if(players.length === 0){
+    rosterList.innerHTML = '<div class="empty-note">No players yet.</div>';
   }
+
+  players.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'player-row';
+
+    const groupTag = document.createElement('span');
+    groupTag.className = 'group-tag' + (p.group_name ? ' '+p.group_name : '');
+    groupTag.textContent = p.group_name || '·';
+    if(p.group_name && isAdmin){
+      groupTag.title = 'Tap to swap group';
+      groupTag.onclick = ()=>swapGroup(p.id);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'player-name';
+    name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+
+    const toggles = document.createElement('div');
+    toggles.className = 'toggle-pair';
+    const canToggle = isAdmin || p.id === myPlayerId;
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'toggle-btn yes' + (p.attend==='yes' ? ' active' : '');
+    yesBtn.textContent = 'YES';
+    if(canToggle) yesBtn.onclick = ()=>setAttend(p.id,'yes'); else yesBtn.disabled = true;
+    const noBtn = document.createElement('button');
+    noBtn.className = 'toggle-btn no' + (p.attend==='no' ? ' active' : '');
+    noBtn.textContent = 'NO';
+    if(canToggle) noBtn.onclick = ()=>setAttend(p.id,'no'); else noBtn.disabled = true;
+    toggles.appendChild(yesBtn);
+    toggles.appendChild(noBtn);
+
+    row.appendChild(groupTag);
+    row.appendChild(name);
+    row.appendChild(toggles);
+
+    if(isAdmin){
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove player';
+      removeBtn.onclick = ()=>removePlayer(p.id);
+      row.appendChild(removeBtn);
+    }
+    rosterList.appendChild(row);
+  });
 
   // Groups section
   const yesPlayers = players.filter(p=>p.attend==='yes');

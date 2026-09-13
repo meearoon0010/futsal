@@ -117,3 +117,25 @@ side they should be on. Leaving it as "No group yet" behaves as before:
 the player sits in the roster unassigned until someone marks them YES,
 at which point they're auto-balanced into whichever group is smaller.
 
+## "Are you playing?" prompt
+
+Right after logging in, if a player hasn't answered yet for the current
+match, a small modal asks "Are you playing?" with YES / NO buttons. This
+uses the same attendance mechanism as the roster toggles, so answering
+here immediately places them in a group if they say YES. Choosing
+"Decide later" dismisses it for now — they can still answer anytime from
+their row in the roster. If the admin uses "Reset all attendance," the
+prompt will show again for everyone next time they interact with the app,
+since their attendance is cleared back to unanswered.
+
+## Admin "Add player" fix
+
+The admin's "Add player" insert was hardened against a silent RLS
+failure: the database policies now compare the admin's email
+case-insensitively, and any insert error is now shown in the status
+line (open the browser console for the full message) instead of failing
+silently. Re-run the latest `supabase-setup.sql` in the SQL Editor to pick
+up this fix — it's safe to run again even if you've already run an
+earlier version. Guest players added this way still never need an
+account — user_id is simply left blank for them.
+

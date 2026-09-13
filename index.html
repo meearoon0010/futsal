@@ -491,6 +491,60 @@
   body.role-viewer .field-value:hover{border-bottom-color:transparent;}
   body.role-viewer .group-tag{cursor:default;}
   body.role-viewer .admin-only{display:none;}
+
+  /* ---------- Attendance prompt modal ---------- */
+  .attend-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(6,10,8,0.82);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .attend-modal-card{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-top:3px solid var(--amber);
+    padding:28px 26px 24px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+  }
+  .attend-modal-card h2{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:28px;
+    letter-spacing:1px;
+    margin:0 0 6px;
+    color:var(--chalk);
+  }
+  .attend-modal-sub{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 20px;
+  }
+  .attend-modal-actions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .attend-modal-actions .toggle-btn{
+    flex:1;
+    padding:12px 10px;
+    font-size:13px;
+  }
+  .attend-modal-skip{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+  }
+  .attend-modal-skip:hover{color:var(--chalk);}
 </style>
 </head>
 <body>
@@ -612,6 +666,19 @@
 
 </div>
 
+<!-- Attendance prompt: shown right after login until the player answers -->
+<div class="attend-modal" id="attendModal" style="display:none">
+  <div class="attend-modal-card">
+    <h2>Are you playing?</h2>
+    <p class="attend-modal-sub" id="attendModalName"></p>
+    <div class="attend-modal-actions">
+      <button class="toggle-btn yes" onclick="answerAttendance('yes')">YES, I'm in</button>
+      <button class="toggle-btn no" onclick="answerAttendance('no')">NO, can't make it</button>
+    </div>
+    <button class="attend-modal-skip" onclick="dismissAttendModal()">Decide later</button>
+  </div>
+</div>
+
 <!-- Printable summary, only shown to the print engine -->
 <div id="printable">
   <h1>Futsal — Attendance</h1>
@@ -715,6 +782,8 @@ let myUserId = null;
 let myPlayerId = null;
 let loaded = false;
 let realtimeChannel = null;
+let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
+let attendPromptDismissed = false;
 
 const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
 
@@ -738,6 +807,10 @@ async function showApp(user){
   document.body.classList.toggle('role-admin', isAdmin);
   document.body.classList.toggle('role-viewer', !isAdmin);
 
+  // fresh login: allow the "are you playing?" prompt to show again
+  prevMineAttend = undefined;
+  attendPromptDismissed = false;
+
   await ensureMyPlayerRow(displayName);
   await loadAllData();
   subscribeRealtime();
@@ -746,12 +819,15 @@ async function showApp(user){
 function showAuthScreen(){
   document.getElementById('appWrap').style.display = 'none';
   document.getElementById('authWrap').style.display = 'block';
+  document.getElementById('attendModal').style.display = 'none';
   showLogin();
   if(realtimeChannel){ sbClient.removeChannel(realtimeChannel); realtimeChannel = null; }
   loaded = false;
   players = [];
   myPlayerId = null;
   myUserId = null;
+  prevMineAttend = undefined;
+  attendPromptDismissed = false;
 }
 
 sbClient.auth.onAuthStateChange((_event, session) => {
@@ -784,6 +860,42 @@ async function loadAllData(){
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
   render();
+  maybeShowAttendPrompt();
+}
+
+/* Ask "are you playing?" right after login (or right after admin resets
+   attendance), unless the player already answered or dismissed it. */
+function maybeShowAttendPrompt(){
+  const modal = document.getElementById('attendModal');
+  const mine = players.find(p => p.id === myPlayerId);
+  if(!mine){ modal.style.display = 'none'; return; }
+
+  if(mine.attend !== null){
+    attendPromptDismissed = false; // reset so a future reset can prompt again
+    modal.style.display = 'none';
+    prevMineAttend = mine.attend;
+    return;
+  }
+
+  const isFirstCheck = prevMineAttend === undefined;
+  const justReset = prevMineAttend !== undefined && prevMineAttend !== null;
+  if((isFirstCheck || justReset) && !attendPromptDismissed){
+    document.getElementById('attendModalName').textContent =
+      `Hey ${mine.display_name}, let us know before the roster fills up.`;
+    modal.style.display = 'flex';
+  }
+  prevMineAttend = mine.attend;
+}
+
+async function answerAttendance(val){
+  document.getElementById('attendModal').style.display = 'none';
+  attendPromptDismissed = false;
+  if(myPlayerId) await setAttend(myPlayerId, val);
+}
+
+function dismissAttendModal(){
+  attendPromptDismissed = true;
+  document.getElementById('attendModal').style.display = 'none';
 }
 
 function subscribeRealtime(){
@@ -834,14 +946,19 @@ async function addPlayer(){
   const name = input.value.trim();
   if(!name) return;
   const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
-  input.value = '';
-  groupSelect.value = '';
   const { error } = await sbClient.from('players').insert({
     display_name: name,
     attend: chosenGroup ? 'yes' : null,
     group_name: chosenGroup
   });
-  setStatus(error ? 'Could not add player' : (chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added'));
+  if(error){
+    console.error('addPlayer failed:', error);
+    setStatus('Could not add player — ' + (error.message || 'unknown error'));
+    return; // keep the typed name so nothing is lost on failure
+  }
+  input.value = '';
+  groupSelect.value = '';
+  setStatus(chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added');
 }
 
 async function setAttend(id, val){

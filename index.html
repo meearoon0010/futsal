@@ -509,12 +509,13 @@
     }
     #printable ol{padding-left:18px;margin:0;}
     #printable li{padding:3px 0;font-size:14px;}
-    #printableBalance table{width:100%;border-collapse:collapse;}
+    #printableBalance table{width:100%;border-collapse:collapse;table-layout:fixed;}
     #printableBalance th, #printableBalance td{
       text-align:left;
       padding:7px 6px;
       border-bottom:1px solid #ccc;
       font-size:14px;
+      word-wrap:break-word;
     }
     #printableBalance th{
       font-family:'Bebas Neue',sans-serif;
@@ -522,7 +523,10 @@
       letter-spacing:0.3px;
       border-bottom:2px solid #000;
     }
-    #printableBalance td.amount{text-align:right;font-weight:600;}
+    #printableBalance th:nth-child(1), #printableBalance td:nth-child(1){width:50%;}
+    #printableBalance th:nth-child(2), #printableBalance td:nth-child(2){width:25%;text-align:right;}
+    #printableBalance th:nth-child(3), #printableBalance td:nth-child(3){width:25%;text-align:left;}
+    #printableBalance td.amount{font-weight:600;}
     #printableBalance td.status{color:#a11;font-weight:600;}
   }
 
@@ -1041,6 +1045,8 @@ let realtimeChannel = null;
 let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
 let attendPromptDismissed = false;
 
+
+
 const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
 
 async function showApp(user){
@@ -1064,6 +1070,8 @@ async function showApp(user){
   document.body.classList.toggle('role-viewer', !isAdmin);
 
   // fresh login: allow the "are you playing?" prompt to show again
+  // (the renew-payment popup uses localStorage, not session state, so it
+  // survives a page reload and only shows once per reminder)
   prevMineAttend = undefined;
   attendPromptDismissed = false;
 
@@ -1158,27 +1166,47 @@ function dismissAttendModal(){
   maybeShowRenewPrompt();
 }
 
-/* Show a "renew payment" popup right after login (or right after the
-   admin flags a player's balance) — but never at the same time as the
-   "are you playing?" prompt, so only one modal ever competes for
-   attention. */
+/* Show a "renew payment" popup once per reminder — persisted in
+   localStorage (keyed by player id + when the reminder was sent) so a
+   page reload, closing the tab, or "remember me" auto-login does NOT
+   re-trigger it. It only shows again if the admin cancels a reminder and
+   later sends a genuinely new one (a fresh payment_reminder_at). Never
+   shows at the same time as the "are you playing?" prompt. */
+const RENEW_SEEN_PREFIX = 'futsalRenewSeen:';
+
+function renewSeenKey(playerId){ return RENEW_SEEN_PREFIX + playerId; }
+
 function maybeShowRenewPrompt(){
   const modal = document.getElementById('renewModal');
   const mine = players.find(p => p.id === myPlayerId);
   const attendShowing = document.getElementById('attendModal').style.display === 'flex';
-  if(!mine || !mine.payment_reminder || attendShowing){
+
+  if(!mine || !mine.payment_reminder){
+    modal.style.display = 'none';
+    return;
+  }
+  if(attendShowing) return; // re-checked again once the attend modal closes
+
+  let seenAt = null;
+  try{ seenAt = localStorage.getItem(renewSeenKey(mine.id)); }catch(e){}
+  const currentAt = mine.payment_reminder_at || 'unknown';
+
+  if(seenAt === currentAt){
     modal.style.display = 'none';
     return;
   }
   modal.style.display = 'flex';
 }
 
-async function dismissRenewPrompt(){
+function dismissRenewPrompt(){
   document.getElementById('renewModal').style.display = 'none';
-  if(!myPlayerId) return;
-  const p = players.find(p => p.id === myPlayerId);
-  if(p) p.payment_reminder = false; // optimistic
-  await sbClient.from('players').update({ payment_reminder: false }).eq('id', myPlayerId);
+  const mine = players.find(p => p.id === myPlayerId);
+  if(mine){
+    try{ localStorage.setItem(renewSeenKey(mine.id), mine.payment_reminder_at || 'unknown'); }catch(e){}
+  }
+  // Intentionally does NOT clear payment_reminder — the "Renew payment"
+  // status stays visible to everyone until the admin cancels it or
+  // updates this player's balance (see setBalance / toggleRenewReminder).
 }
 
 function subscribeRealtime(){
@@ -1310,10 +1338,21 @@ async function setBalance(id, newBalance){
   const p = players.find(p=>p.id===id);
   if(!p) return;
   const val = Math.round(newBalance * 100) / 100;
+  const wasReminded = !!p.payment_reminder;
   p.balance = val; // optimistic
+  p.payment_reminder = false; // changing the balance clears any pending "renew payment" status
+  p.payment_reminder_at = null;
   render();
-  const { error } = await sbClient.from('players').update({ balance: val }).eq('id', id);
-  setStatus(error ? 'Could not save balance — try again' : `Balance updated for ${p.display_name}`);
+  const { error } = await sbClient.from('players')
+    .update({ balance: val, payment_reminder: false, payment_reminder_at: null })
+    .eq('id', id);
+  if(error){
+    setStatus('Could not save balance — try again');
+    return;
+  }
+  setStatus(wasReminded
+    ? `Balance updated for ${p.display_name} — renew payment status cleared`
+    : `Balance updated for ${p.display_name}`);
 }
 
 function editBalance(id){
@@ -1343,9 +1382,13 @@ async function toggleRenewReminder(id){
   const p = players.find(p=>p.id===id);
   if(!p) return;
   const newVal = !p.payment_reminder;
+  const newAt = newVal ? new Date().toISOString() : null;
   p.payment_reminder = newVal; // optimistic
+  p.payment_reminder_at = newAt;
   render();
-  const { error } = await sbClient.from('players').update({ payment_reminder: newVal }).eq('id', id);
+  const { error } = await sbClient.from('players')
+    .update({ payment_reminder: newVal, payment_reminder_at: newAt })
+    .eq('id', id);
   if(error){ setStatus('Could not update reminder — try again'); return; }
   setStatus(newVal ? `Renew payment reminder sent to ${p.display_name}` : `Reminder cancelled for ${p.display_name}`);
 }

@@ -162,19 +162,31 @@ roster:
 - **Only the admin** can change a balance — tap the amount to set it to an
   exact figure, or use "+ Add" to top it up by an amount you type in.
 - **Only the admin** can send a **"Send renew payment"** reminder for a
-  player. Doing so pops a "Renew payment" message for that player the next
-  time they open the app (or right after they close the "Are you playing?"
-  prompt, if that's showing too — only one popup shows at a time). The
-  player dismissing it with "Got it" clears the reminder; the admin can
-  also cancel it early by tapping "Reminder sent" again.
+  player. Doing so pops a "Renew payment" message for that player — shown
+  exactly once per reminder (it won't re-pop on a page reload, closing and
+  reopening the app, or "remember me" auto-login), and never at the same
+  time as the "Are you playing?" prompt. The player's own "Got it" button
+  only closes that popup for them — it does **not** clear the reminder.
+  The shared "Renew payment" tag next to that player's balance stays
+  visible to everyone until the admin either taps "Reminder sent" again to
+  cancel it, or updates that player's balance (setting/adding an amount
+  automatically clears the reminder too, since that's how the admin
+  records a payment coming in). If the admin cancels a reminder and later
+  sends a genuinely new one, the popup shows again once for that new
+  reminder.
 - Balances at or below zero are shown in red. When the admin sends a
   reminder for a player, a small **"Renew payment"** tag appears next to
   that player's balance — visible to everyone, not just the admin — until
   the player dismisses the popup (or the admin cancels it).
+- **"Download balance PDF"**, below the balance table, works the same way
+  as the attendance PDF — it opens the browser's print dialog with a clean
+  player/balance/status sheet; choose "Save as PDF" as the destination.
+  Any signed-in user can do this, not just the admin.
 
 This is enforced at the database level too: only the admin can change a
-`balance` value, and only the admin can raise a `payment_reminder` — a
-player can dismiss their own reminder but never set one for themselves or
-anyone else. Re-run the latest `supabase-setup.sql` to pick up the new
+`balance` value, and only the admin can raise or clear a `payment_reminder`
+— not even the row's own owner can touch it, so the shared status can't be
+dismissed by anyone but the admin (or cleared automatically by an admin
+balance update). Re-run the latest `supabase-setup.sql` to pick up the new
 `balance` / `payment_reminder` columns and policies.
 

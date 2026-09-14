@@ -67,6 +67,9 @@
     *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
   }
 
+  /* Anything marked admin-only is hidden from everyone else */
+  body.role-viewer .admin-only{display:none !important;}
+
   .app{
     max-width:640px;
     margin:0 auto;
@@ -346,6 +349,14 @@
   .balance-amount.low{color:var(--red);}
   .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
   .balance-amount.editable:hover{border-bottom-color:var(--muted);}
+  .renew-tag{
+    font-size:11px;
+    font-weight:700;
+    color:var(--red);
+    border:1px solid var(--red);
+    padding:4px 8px;
+    white-space:nowrap;
+  }
   .balance-add-btn{
     background:none;
     border:1px solid var(--line);
@@ -372,14 +383,6 @@
   .renew-btn:hover{background:var(--amber);color:#221200;}
   .renew-btn.sent{border-color:var(--line);color:var(--muted);}
   .renew-btn.sent:hover{background:none;border-color:var(--red);color:var(--red);}
-  .balance-low-tag{
-    font-size:11px;
-    font-weight:700;
-    color:var(--red);
-    border:1px solid var(--red);
-    padding:4px 8px;
-    white-space:nowrap;
-  }
 
   /* ---------- Groups (bibs) ---------- */
   .groups-wrap{margin-bottom:30px;}
@@ -779,7 +782,7 @@
   </div>
 
   <div class="scoreboard">
-    <span class="edit-hint">tap to edit</span>
+    <span class="edit-hint admin-only">tap to edit</span>
     <div class="scoreboard-grid">
       <div>
         <span class="field-label">Venue</span>
@@ -828,7 +831,7 @@
     <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
     <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
-    <span class="note">Changes sync live — everyone signed in sees the same roster in real time.</span>
+    <span class="note admin-only">Changes sync live — everyone signed in sees the same roster in real time.</span>
     <span class="status-msg" id="statusMsg"></span>
   </div>
 
@@ -1393,6 +1396,13 @@ function render(){
     row.appendChild(name);
     row.appendChild(amount);
 
+    if(p.payment_reminder){
+      const tag = document.createElement('span');
+      tag.className = 'renew-tag';
+      tag.textContent = 'Renew payment';
+      row.appendChild(tag);
+    }
+
     if(isAdmin){
       const addBtn = document.createElement('button');
       addBtn.className = 'balance-add-btn';
@@ -1407,11 +1417,6 @@ function render(){
       renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
       renewBtn.onclick = ()=>toggleRenewReminder(p.id);
       row.appendChild(renewBtn);
-    } else if(bal <= 0){
-      const tag = document.createElement('span');
-      tag.className = 'balance-low-tag';
-      tag.textContent = 'Renew payment';
-      row.appendChild(tag);
     }
 
     balanceList.appendChild(row);

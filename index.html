@@ -468,7 +468,7 @@
     display:flex;
     flex-wrap:wrap;
     gap:8px;
-    margin-bottom:30px;
+    margin-bottom:14px;
   }
   .record-btn{
     flex:1;
@@ -544,15 +544,16 @@
   }
 
   /* ---------- Print / PDF view ---------- */
-  #printable, #printableBalance, #printableBoth{display:none;}
+  #printable, #printableBalance, #printableRecord, #printableAll{display:none;}
 
   @media print{
     body::before{display:none;}
     body *{visibility:hidden;}
     body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
     body.print-balance #printableBalance, body.print-balance #printableBalance *{visibility:visible;}
-    body.print-both #printableBoth, body.print-both #printableBoth *{visibility:visible;}
-    #printable, #printableBalance, #printableBoth{
+    body.print-record #printableRecord, body.print-record #printableRecord *{visibility:visible;}
+    body.print-all #printableAll, body.print-all #printableAll *{visibility:visible;}
+    #printable, #printableBalance, #printableRecord, #printableAll{
       display:block;
       position:absolute;
       top:0;left:0;
@@ -561,46 +562,47 @@
       color:#000;
       padding:20px;
     }
-    #printable h1, #printableBalance h1, #printableBoth h1{
+    #printable h1, #printableBalance h1, #printableRecord h1, #printableAll h1{
       font-family:'Bebas Neue',sans-serif;
       font-size:30px;
       margin:0 0 4px;
     }
-    #printableBoth h1.second-title{margin-top:26px;page-break-before:always;}
-    #printable .meta, #printableBalance .meta, #printableBoth .meta{font-size:13px;margin-bottom:16px;color:#333;}
-    #printable .cols, #printableBoth .cols{display:flex;gap:30px;}
-    #printable .col, #printableBoth .col{flex:1;}
-    #printable .col h2, #printableBoth .col h2{
+    #printableAll h1.second-title{margin-top:26px;page-break-before:always;}
+    #printable .meta, #printableBalance .meta, #printableRecord .meta, #printableAll .meta{font-size:13px;margin-bottom:16px;color:#333;}
+    #printable .cols, #printableAll .cols{display:flex;gap:30px;}
+    #printable .col, #printableAll .col{flex:1;}
+    #printable .col h2, #printableAll .col h2{
       font-family:'Bebas Neue',sans-serif;
       font-size:18px;
       border-bottom:2px solid #000;
       padding-bottom:4px;
       margin-bottom:8px;
     }
-    #printable ol, #printableBoth ol{padding-left:18px;margin:0;}
-    #printable li, #printableBoth li{padding:3px 0;font-size:14px;}
-    #printableBalance table, #printableBoth table{width:100%;border-collapse:collapse;table-layout:fixed;}
-    #printableBalance th, #printableBalance td, #printableBoth th, #printableBoth td{
+    #printable ol, #printableAll ol{padding-left:18px;margin:0;}
+    #printable li, #printableAll li{padding:3px 0;font-size:14px;}
+    #printableBalance table, #printableRecord table, #printableAll table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    #printableBalance th, #printableBalance td,
+    #printableRecord th, #printableRecord td,
+    #printableAll th, #printableAll td{
       text-align:left;
       padding:7px 6px;
       border-bottom:1px solid #ccc;
       font-size:14px;
       word-wrap:break-word;
     }
-    #printableBalance th, #printableBoth th{
+    #printableBalance th, #printableRecord th, #printableAll th{
       font-family:'Bebas Neue',sans-serif;
       font-size:15px;
       letter-spacing:0.3px;
       border-bottom:2px solid #000;
     }
-    #printableBalance th:nth-child(1), #printableBalance td:nth-child(1),
-    #printableBoth th:nth-child(1), #printableBoth td:nth-child(1){width:50%;}
-    #printableBalance th:nth-child(2), #printableBalance td:nth-child(2),
-    #printableBoth th:nth-child(2), #printableBoth td:nth-child(2){width:25%;text-align:right;}
-    #printableBalance th:nth-child(3), #printableBalance td:nth-child(3),
-    #printableBoth th:nth-child(3), #printableBoth td:nth-child(3){width:25%;text-align:left;}
-    #printableBalance td.amount, #printableBoth td.amount{font-weight:600;}
-    #printableBalance td.status, #printableBoth td.status{color:#a11;font-weight:600;}
+    .balance-table th:nth-child(1), .balance-table td:nth-child(1){width:50%;}
+    .balance-table th:nth-child(2), .balance-table td:nth-child(2){width:25%;text-align:right;}
+    .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:25%;text-align:left;}
+    .balance-table td.amount{font-weight:600;}
+    .balance-table td.status{color:#a11;font-weight:600;}
+    .record-table th:nth-child(1), .record-table td:nth-child(1){width:50%;}
+    .record-table th:nth-child(2), .record-table td:nth-child(2){width:50%;}
   }
 
   @media (max-width:420px){
@@ -957,9 +959,10 @@
     <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
     <button class="record-reset" onclick="resetRecord()">Reset record</button>
   </div>
+  <button class="balance-pdf-btn" onclick="downloadRecordPDF()">Download season record PDF</button>
 
   <div class="actions">
-    <button class="download-btn secondary" onclick="downloadBothPDF()">Download attendance + balance PDF</button>
+    <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
     <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
     <span class="note admin-only">Changes sync live — everyone signed in sees the same roster in real time.</span>
@@ -1010,7 +1013,7 @@
 <div id="printableBalance">
   <h1>Futsal — Balance</h1>
   <div class="meta" id="printBalanceMeta"></div>
-  <table>
+  <table class="balance-table">
     <thead>
       <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
     </thead>
@@ -1018,27 +1021,47 @@
   </table>
 </div>
 
-<div id="printableBoth">
+<div id="printableRecord">
+  <h1>Futsal — Season Record</h1>
+  <div class="meta" id="printRecordMeta"></div>
+  <table class="record-table">
+    <thead>
+      <tr><th>Group</th><th>Record (W–L–D)</th></tr>
+    </thead>
+    <tbody id="printRecordBody"></tbody>
+  </table>
+</div>
+
+<div id="printableAll">
   <h1>Futsal — Attendance</h1>
-  <div class="meta" id="printBothAttendMeta"></div>
+  <div class="meta" id="printAllAttendMeta"></div>
   <div class="cols">
     <div class="col">
       <h2>Group A</h2>
-      <ol id="printBothA"></ol>
+      <ol id="printAllA"></ol>
     </div>
     <div class="col">
       <h2>Group B</h2>
-      <ol id="printBothB"></ol>
+      <ol id="printAllB"></ol>
     </div>
   </div>
 
   <h1 class="second-title">Futsal — Balance</h1>
-  <div class="meta" id="printBothBalanceMeta"></div>
-  <table>
+  <div class="meta" id="printAllBalanceMeta"></div>
+  <table class="balance-table">
     <thead>
       <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
     </thead>
-    <tbody id="printBothBalanceBody"></tbody>
+    <tbody id="printAllBalanceBody"></tbody>
+  </table>
+
+  <h1 class="second-title">Futsal — Season Record</h1>
+  <div class="meta" id="printAllRecordMeta"></div>
+  <table class="record-table">
+    <thead>
+      <tr><th>Group</th><th>Record (W–L–D)</th></tr>
+    </thead>
+    <tbody id="printAllRecordBody"></tbody>
   </table>
 </div>
 
@@ -1731,10 +1754,29 @@ function fillBalanceMarkup(metaId, bodyId){
   });
 }
 
+function fillRecordMarkup(metaId, bodyId){
+  const today = new Date().toLocaleDateString();
+  const aWins = matchInfo.a_wins || 0;
+  const bWins = matchInfo.b_wins || 0;
+  const draws = matchInfo.draws || 0;
+  document.getElementById(metaId).textContent = `As of ${today}`;
+  const body = document.getElementById(bodyId);
+  body.innerHTML = '';
+  [['Group A', `${aWins}W – ${bWins}L – ${draws}D`], ['Group B', `${bWins}W – ${aWins}L – ${draws}D`]]
+    .forEach(([label, record])=>{
+      const tr = document.createElement('tr');
+      const nameTd = document.createElement('td'); nameTd.textContent = label;
+      const recordTd = document.createElement('td'); recordTd.textContent = record;
+      tr.appendChild(nameTd); tr.appendChild(recordTd);
+      body.appendChild(tr);
+    });
+}
+
 function setPrintMode(mode){
   document.body.classList.toggle('print-attendance', mode === 'attendance');
   document.body.classList.toggle('print-balance', mode === 'balance');
-  document.body.classList.toggle('print-both', mode === 'both');
+  document.body.classList.toggle('print-record', mode === 'record');
+  document.body.classList.toggle('print-all', mode === 'all');
 }
 
 function downloadPDF(){
@@ -1749,10 +1791,17 @@ function downloadBalancePDF(){
   window.print();
 }
 
-function downloadBothPDF(){
-  setPrintMode('both');
-  fillAttendanceMarkup('printBothAttendMeta', 'printBothA', 'printBothB');
-  fillBalanceMarkup('printBothBalanceMeta', 'printBothBalanceBody');
+function downloadRecordPDF(){
+  setPrintMode('record');
+  fillRecordMarkup('printRecordMeta', 'printRecordBody');
+  window.print();
+}
+
+function downloadAllPDF(){
+  setPrintMode('all');
+  fillAttendanceMarkup('printAllAttendMeta', 'printAllA', 'printAllB');
+  fillBalanceMarkup('printAllBalanceMeta', 'printAllBalanceBody');
+  fillRecordMarkup('printAllRecordMeta', 'printAllRecordBody');
   window.print();
 }
 

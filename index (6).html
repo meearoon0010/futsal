@@ -8,16 +8,16 @@
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
 
   :root{
-    --bg-night:#0a130d;
-    --bg-panel:#142a1e;
-    --bg-panel-2:#0f2117;
-    --turf:#2f6b3c;
-    --turf-bright:#57b565;
+    --bg-night:#0f2b19;
+    --bg-panel:#1a4527;
+    --bg-panel-2:#123419;
+    --turf:#2f8f47;
+    --turf-bright:#4ecb63;
     --chalk:#f2f5ee;
     --amber:#f0a531;
     --amber-deep:#c97d1e;
-    --muted:#86988c;
-    --line:#223a2c;
+    --muted:#9fc2a8;
+    --line:#2f5c3a;
     --red:#c1443c;
     --red-deep:#8f2f29;
   }
@@ -48,10 +48,11 @@
     z-index:0;
     pointer-events:none;
     background:
-      radial-gradient(circle at 50% 190px, transparent 96px, rgba(242,245,238,0.05) 97px, rgba(242,245,238,0.05) 99px, transparent 100px),
-      linear-gradient(rgba(242,245,238,0.05), rgba(242,245,238,0.05)) center 190px / 100% 1px no-repeat,
-      radial-gradient(ellipse 60% 40% at 8% -6%, rgba(240,165,49,0.10), transparent 60%),
-      radial-gradient(ellipse 55% 45% at 96% 18%, rgba(87,181,101,0.08), transparent 60%);
+      repeating-linear-gradient(100deg, rgba(255,255,255,0.028) 0 60px, rgba(0,0,0,0.05) 60px 120px),
+      radial-gradient(circle at 50% 190px, transparent 96px, rgba(242,245,238,0.08) 97px, rgba(242,245,238,0.08) 99px, transparent 100px),
+      linear-gradient(rgba(242,245,238,0.08), rgba(242,245,238,0.08)) center 190px / 100% 1px no-repeat,
+      radial-gradient(ellipse 70% 45% at 50% -4%, rgba(78,203,99,0.16), transparent 65%),
+      radial-gradient(ellipse 60% 40% at 8% -6%, rgba(240,165,49,0.09), transparent 60%);
   }
 
   a{color:inherit;}
@@ -323,7 +324,7 @@
     display:flex;
     flex-direction:column;
     border-top:1px solid var(--line);
-    margin-bottom:30px;
+    margin-bottom:14px;
   }
   .balance-row{
     display:flex;
@@ -349,6 +350,14 @@
   .balance-amount.low{color:var(--red);}
   .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
   .balance-amount.editable:hover{border-bottom-color:var(--muted);}
+  .renew-tag{
+    font-size:11px;
+    font-weight:700;
+    color:var(--red);
+    border:1px solid var(--red);
+    padding:4px 8px;
+    white-space:nowrap;
+  }
   .balance-add-btn{
     background:none;
     border:1px solid var(--line);
@@ -361,6 +370,19 @@
     transition:border-color .12s ease, color .12s ease;
   }
   .balance-add-btn:hover{border-color:var(--turf-bright);color:var(--turf-bright);}
+  .balance-pdf-btn{
+    display:inline-block;
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    padding:8px 14px;
+    cursor:pointer;
+    margin:2px 0 30px;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .balance-pdf-btn:hover{border-color:var(--amber);color:var(--amber);}
   .renew-btn{
     background:none;
     border:1px solid var(--amber);
@@ -454,13 +476,14 @@
   }
 
   /* ---------- Print / PDF view ---------- */
-  #printable{display:none;}
+  #printable, #printableBalance{display:none;}
 
   @media print{
     body::before{display:none;}
     body *{visibility:hidden;}
-    #printable, #printable *{visibility:visible;}
-    #printable{
+    body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
+    body.print-balance #printableBalance, body.print-balance #printableBalance *{visibility:visible;}
+    #printable, #printableBalance{
       display:block;
       position:absolute;
       top:0;left:0;
@@ -469,12 +492,12 @@
       color:#000;
       padding:20px;
     }
-    #printable h1{
+    #printable h1, #printableBalance h1{
       font-family:'Bebas Neue',sans-serif;
       font-size:30px;
       margin:0 0 4px;
     }
-    #printable .meta{font-size:13px;margin-bottom:16px;color:#333;}
+    #printable .meta, #printableBalance .meta{font-size:13px;margin-bottom:16px;color:#333;}
     #printable .cols{display:flex;gap:30px;}
     #printable .col{flex:1;}
     #printable .col h2{
@@ -486,6 +509,25 @@
     }
     #printable ol{padding-left:18px;margin:0;}
     #printable li{padding:3px 0;font-size:14px;}
+    #printableBalance table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    #printableBalance th, #printableBalance td{
+      text-align:left;
+      padding:7px 6px;
+      border-bottom:1px solid #ccc;
+      font-size:14px;
+      word-wrap:break-word;
+    }
+    #printableBalance th{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:15px;
+      letter-spacing:0.3px;
+      border-bottom:2px solid #000;
+    }
+    #printableBalance th:nth-child(1), #printableBalance td:nth-child(1){width:50%;}
+    #printableBalance th:nth-child(2), #printableBalance td:nth-child(2){width:25%;text-align:right;}
+    #printableBalance th:nth-child(3), #printableBalance td:nth-child(3){width:25%;text-align:left;}
+    #printableBalance td.amount{font-weight:600;}
+    #printableBalance td.status{color:#a11;font-weight:600;}
   }
 
   @media (max-width:420px){
@@ -697,8 +739,10 @@
   <div class="masthead" style="max-width:400px;margin:0 auto 22px;">
     <div class="wordmark">
       <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
-        <circle cx="22" cy="22" r="19" fill="none" stroke="var(--chalk)" stroke-width="1.6" opacity="0.3"/>
-        <path d="M22 8 L31.4 14.6 L27.9 25.4 L16.1 25.4 L12.6 14.6 Z" fill="var(--amber)"/>
+        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       </svg>
       <h1>FUTSAL</h1>
     </div>
@@ -713,7 +757,7 @@
 
     <!-- Login form -->
     <form id="loginForm" onsubmit="handleLogin(event)">
-      <p class="auth-sub">Sign in to see tonight's roster.</p>
+      <p class="auth-sub">Sign in to see the roster.</p>
       <div class="auth-field">
         <label for="loginEmail">Email</label>
         <input type="email" id="loginEmail" autocomplete="email" required>
@@ -765,8 +809,10 @@
   <div class="masthead">
     <div class="wordmark">
       <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
-        <circle cx="22" cy="22" r="19" fill="none" stroke="var(--chalk)" stroke-width="1.6" opacity="0.3"/>
-        <path d="M22 8 L31.4 14.6 L27.9 25.4 L16.1 25.4 L12.6 14.6 Z" fill="var(--amber)"/>
+        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       </svg>
       <h1>FUTSAL</h1>
     </div>
@@ -804,6 +850,7 @@
 
   <div class="section-title">Balance</div>
   <div class="balance-list" id="balanceList"></div>
+  <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
 
   <div class="groups-wrap" id="groupsWrap" style="display:none">
     <div class="section-title">Teams — Confirmed Players</div>
@@ -866,6 +913,17 @@
       <ol id="printB"></ol>
     </div>
   </div>
+</div>
+
+<div id="printableBalance">
+  <h1>Futsal — Balance</h1>
+  <div class="meta" id="printBalanceMeta"></div>
+  <table>
+    <thead>
+      <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
+    </thead>
+    <tbody id="printBalanceBody"></tbody>
+  </table>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -986,6 +1044,8 @@ let loaded = false;
 let realtimeChannel = null;
 let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
 let attendPromptDismissed = false;
+let renewPromptDismissed = false; // per-session only — does NOT clear the shared "Renew payment" status
+let prevMineReminder = undefined; // undefined = not checked yet (fresh login)
 
 const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
 
@@ -1009,9 +1069,11 @@ async function showApp(user){
   document.body.classList.toggle('role-admin', isAdmin);
   document.body.classList.toggle('role-viewer', !isAdmin);
 
-  // fresh login: allow the "are you playing?" prompt to show again
+  // fresh login: allow the "are you playing?" and renew-payment prompts to show again
   prevMineAttend = undefined;
   attendPromptDismissed = false;
+  prevMineReminder = undefined;
+  renewPromptDismissed = false;
 
   await ensureMyPlayerRow(displayName);
   await loadAllData();
@@ -1030,6 +1092,8 @@ function showAuthScreen(){
   myUserId = null;
   prevMineAttend = undefined;
   attendPromptDismissed = false;
+  prevMineReminder = undefined;
+  renewPromptDismissed = false;
 }
 
 sbClient.auth.onAuthStateChange((_event, session) => {
@@ -1104,27 +1168,39 @@ function dismissAttendModal(){
   maybeShowRenewPrompt();
 }
 
-/* Show a "renew payment" popup right after login (or right after the
-   admin flags a player's balance) — but never at the same time as the
-   "are you playing?" prompt, so only one modal ever competes for
-   attention. */
+/* Show a "renew payment" popup right after login, and again if the admin
+   raises a new reminder after a previous one was cleared — but never at
+   the same time as the "are you playing?" prompt, so only one modal ever
+   competes for attention. Dismissing this popup only closes it for this
+   session: the shared "Renew payment" status stays visible to everyone
+   (including the player themselves) until the admin cancels the reminder
+   or changes that player's balance. */
 function maybeShowRenewPrompt(){
   const modal = document.getElementById('renewModal');
   const mine = players.find(p => p.id === myPlayerId);
   const attendShowing = document.getElementById('attendModal').style.display === 'flex';
-  if(!mine || !mine.payment_reminder || attendShowing){
+
+  if(!mine || !mine.payment_reminder){
+    renewPromptDismissed = false; // reset so a future reminder can prompt again
     modal.style.display = 'none';
+    prevMineReminder = mine ? mine.payment_reminder : undefined;
     return;
   }
-  modal.style.display = 'flex';
+
+  const isFirstCheck = prevMineReminder === undefined;
+  const justRaised = prevMineReminder === false;
+  if((isFirstCheck || justRaised) && !renewPromptDismissed && !attendShowing){
+    modal.style.display = 'flex';
+  }
+  prevMineReminder = mine.payment_reminder;
 }
 
-async function dismissRenewPrompt(){
+function dismissRenewPrompt(){
+  renewPromptDismissed = true;
   document.getElementById('renewModal').style.display = 'none';
-  if(!myPlayerId) return;
-  const p = players.find(p => p.id === myPlayerId);
-  if(p) p.payment_reminder = false; // optimistic
-  await sbClient.from('players').update({ payment_reminder: false }).eq('id', myPlayerId);
+  // Intentionally does NOT clear payment_reminder — the "Renew payment"
+  // status stays visible to everyone until the admin cancels it or
+  // updates this player's balance (see setBalance / toggleRenewReminder).
 }
 
 function subscribeRealtime(){
@@ -1256,10 +1332,20 @@ async function setBalance(id, newBalance){
   const p = players.find(p=>p.id===id);
   if(!p) return;
   const val = Math.round(newBalance * 100) / 100;
+  const wasReminded = !!p.payment_reminder;
   p.balance = val; // optimistic
+  p.payment_reminder = false; // changing the balance clears any pending "renew payment" status
   render();
-  const { error } = await sbClient.from('players').update({ balance: val }).eq('id', id);
-  setStatus(error ? 'Could not save balance — try again' : `Balance updated for ${p.display_name}`);
+  const { error } = await sbClient.from('players')
+    .update({ balance: val, payment_reminder: false })
+    .eq('id', id);
+  if(error){
+    setStatus('Could not save balance — try again');
+    return;
+  }
+  setStatus(wasReminded
+    ? `Balance updated for ${p.display_name} — renew payment status cleared`
+    : `Balance updated for ${p.display_name}`);
 }
 
 function editBalance(id){
@@ -1388,6 +1474,13 @@ function render(){
     row.appendChild(name);
     row.appendChild(amount);
 
+    if(p.payment_reminder){
+      const tag = document.createElement('span');
+      tag.className = 'renew-tag';
+      tag.textContent = 'Renew payment';
+      row.appendChild(tag);
+    }
+
     if(isAdmin){
       const addBtn = document.createElement('button');
       addBtn.className = 'balance-add-btn';
@@ -1447,6 +1540,8 @@ function escapeHtml(str){
 
 /* ---------- PDF (print) ---------- */
 function downloadPDF(){
+  document.body.classList.add('print-attendance');
+  document.body.classList.remove('print-balance');
   const yesPlayers = players.filter(p=>p.attend==='yes');
   document.getElementById('printMeta').textContent =
     `Venue: ${matchInfo.venue}   •   Date & Kick-off: ${matchInfo.kickoff_time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
@@ -1459,6 +1554,27 @@ function downloadPDF(){
   });
   yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
     const li = document.createElement('li'); li.textContent = p.display_name; printB.appendChild(li);
+  });
+  window.print();
+}
+
+function downloadBalancePDF(){
+  document.body.classList.add('print-balance');
+  document.body.classList.remove('print-attendance');
+  const today = new Date().toLocaleDateString();
+  document.getElementById('printBalanceMeta').textContent = `As of ${today}   •   ${players.length} player${players.length===1?'':'s'}`;
+  const body = document.getElementById('printBalanceBody');
+  body.innerHTML = '';
+  players.forEach(p=>{
+    const bal = Number(p.balance || 0);
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td'); nameTd.textContent = p.display_name;
+    const amountTd = document.createElement('td'); amountTd.className = 'amount';
+    amountTd.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
+    const statusTd = document.createElement('td'); statusTd.className = 'status';
+    statusTd.textContent = p.payment_reminder ? 'Renew payment' : '';
+    tr.appendChild(nameTd); tr.appendChild(amountTd); tr.appendChild(statusTd);
+    body.appendChild(tr);
   });
   window.print();
 }

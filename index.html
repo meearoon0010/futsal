@@ -237,7 +237,7 @@
     display:flex;
     flex-direction:column;
     border-top:1px solid var(--line);
-    margin-bottom:30px;
+    margin-bottom:14px;
   }
   .player-row{
     display:flex;
@@ -858,6 +858,7 @@
 
   <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
   <div class="roster" id="rosterList"></div>
+  <button class="download-btn" style="margin:2px 0 30px" onclick="downloadPDF()">Download attendance PDF</button>
 
   <div class="section-title">Balance</div>
   <div class="balance-list" id="balanceList"></div>
@@ -878,7 +879,6 @@
   </div>
 
   <div class="actions">
-    <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
     <button class="download-btn secondary" onclick="downloadBothPDF()">Download attendance + balance PDF</button>
     <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>

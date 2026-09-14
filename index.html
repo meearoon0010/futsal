@@ -455,6 +455,12 @@
     transition:background .12s ease;
   }
   .download-btn:hover{background:#ffb745;}
+  .download-btn.secondary{
+    background:none;
+    border:1px solid var(--turf-bright);
+    color:var(--turf-bright);
+  }
+  .download-btn.secondary:hover{background:var(--turf-bright);color:#08130c;}
   .actions .note{font-size:12px;color:var(--muted);}
   .reset-btn{
     background:none;
@@ -476,14 +482,15 @@
   }
 
   /* ---------- Print / PDF view ---------- */
-  #printable, #printableBalance{display:none;}
+  #printable, #printableBalance, #printableBoth{display:none;}
 
   @media print{
     body::before{display:none;}
     body *{visibility:hidden;}
     body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
     body.print-balance #printableBalance, body.print-balance #printableBalance *{visibility:visible;}
-    #printable, #printableBalance{
+    body.print-both #printableBoth, body.print-both #printableBoth *{visibility:visible;}
+    #printable, #printableBalance, #printableBoth{
       display:block;
       position:absolute;
       top:0;left:0;
@@ -492,42 +499,46 @@
       color:#000;
       padding:20px;
     }
-    #printable h1, #printableBalance h1{
+    #printable h1, #printableBalance h1, #printableBoth h1{
       font-family:'Bebas Neue',sans-serif;
       font-size:30px;
       margin:0 0 4px;
     }
-    #printable .meta, #printableBalance .meta{font-size:13px;margin-bottom:16px;color:#333;}
-    #printable .cols{display:flex;gap:30px;}
-    #printable .col{flex:1;}
-    #printable .col h2{
+    #printableBoth h1.second-title{margin-top:26px;page-break-before:always;}
+    #printable .meta, #printableBalance .meta, #printableBoth .meta{font-size:13px;margin-bottom:16px;color:#333;}
+    #printable .cols, #printableBoth .cols{display:flex;gap:30px;}
+    #printable .col, #printableBoth .col{flex:1;}
+    #printable .col h2, #printableBoth .col h2{
       font-family:'Bebas Neue',sans-serif;
       font-size:18px;
       border-bottom:2px solid #000;
       padding-bottom:4px;
       margin-bottom:8px;
     }
-    #printable ol{padding-left:18px;margin:0;}
-    #printable li{padding:3px 0;font-size:14px;}
-    #printableBalance table{width:100%;border-collapse:collapse;table-layout:fixed;}
-    #printableBalance th, #printableBalance td{
+    #printable ol, #printableBoth ol{padding-left:18px;margin:0;}
+    #printable li, #printableBoth li{padding:3px 0;font-size:14px;}
+    #printableBalance table, #printableBoth table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    #printableBalance th, #printableBalance td, #printableBoth th, #printableBoth td{
       text-align:left;
       padding:7px 6px;
       border-bottom:1px solid #ccc;
       font-size:14px;
       word-wrap:break-word;
     }
-    #printableBalance th{
+    #printableBalance th, #printableBoth th{
       font-family:'Bebas Neue',sans-serif;
       font-size:15px;
       letter-spacing:0.3px;
       border-bottom:2px solid #000;
     }
-    #printableBalance th:nth-child(1), #printableBalance td:nth-child(1){width:50%;}
-    #printableBalance th:nth-child(2), #printableBalance td:nth-child(2){width:25%;text-align:right;}
-    #printableBalance th:nth-child(3), #printableBalance td:nth-child(3){width:25%;text-align:left;}
-    #printableBalance td.amount{font-weight:600;}
-    #printableBalance td.status{color:#a11;font-weight:600;}
+    #printableBalance th:nth-child(1), #printableBalance td:nth-child(1),
+    #printableBoth th:nth-child(1), #printableBoth td:nth-child(1){width:50%;}
+    #printableBalance th:nth-child(2), #printableBalance td:nth-child(2),
+    #printableBoth th:nth-child(2), #printableBoth td:nth-child(2){width:25%;text-align:right;}
+    #printableBalance th:nth-child(3), #printableBalance td:nth-child(3),
+    #printableBoth th:nth-child(3), #printableBoth td:nth-child(3){width:25%;text-align:left;}
+    #printableBalance td.amount, #printableBoth td.amount{font-weight:600;}
+    #printableBalance td.status, #printableBoth td.status{color:#a11;font-weight:600;}
   }
 
   @media (max-width:420px){
@@ -868,6 +879,7 @@
 
   <div class="actions">
     <button class="download-btn" onclick="downloadPDF()">Download attendance PDF</button>
+    <button class="download-btn secondary" onclick="downloadBothPDF()">Download attendance + balance PDF</button>
     <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
     <span class="note admin-only">Changes sync live — everyone signed in sees the same roster in real time.</span>
@@ -923,6 +935,30 @@
       <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
     </thead>
     <tbody id="printBalanceBody"></tbody>
+  </table>
+</div>
+
+<div id="printableBoth">
+  <h1>Futsal — Attendance</h1>
+  <div class="meta" id="printBothAttendMeta"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Group A</h2>
+      <ol id="printBothA"></ol>
+    </div>
+    <div class="col">
+      <h2>Group B</h2>
+      <ol id="printBothB"></ol>
+    </div>
+  </div>
+
+  <h1 class="second-title">Futsal — Balance</h1>
+  <div class="meta" id="printBothBalanceMeta"></div>
+  <table>
+    <thead>
+      <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
+    </thead>
+    <tbody id="printBothBalanceBody"></tbody>
   </table>
 </div>
 
@@ -1550,31 +1586,26 @@ function escapeHtml(str){
 }
 
 /* ---------- PDF (print) ---------- */
-function downloadPDF(){
-  document.body.classList.add('print-attendance');
-  document.body.classList.remove('print-balance');
+function fillAttendanceMarkup(metaId, colAId, colBId){
   const yesPlayers = players.filter(p=>p.attend==='yes');
-  document.getElementById('printMeta').textContent =
+  document.getElementById(metaId).textContent =
     `Venue: ${matchInfo.venue}   •   Date & Kick-off: ${matchInfo.kickoff_time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
-  const printA = document.getElementById('printA');
-  const printB = document.getElementById('printB');
-  printA.innerHTML = '';
-  printB.innerHTML = '';
+  const colA = document.getElementById(colAId);
+  const colB = document.getElementById(colBId);
+  colA.innerHTML = '';
+  colB.innerHTML = '';
   yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
-    const li = document.createElement('li'); li.textContent = p.display_name; printA.appendChild(li);
+    const li = document.createElement('li'); li.textContent = p.display_name; colA.appendChild(li);
   });
   yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
-    const li = document.createElement('li'); li.textContent = p.display_name; printB.appendChild(li);
+    const li = document.createElement('li'); li.textContent = p.display_name; colB.appendChild(li);
   });
-  window.print();
 }
 
-function downloadBalancePDF(){
-  document.body.classList.add('print-balance');
-  document.body.classList.remove('print-attendance');
+function fillBalanceMarkup(metaId, bodyId){
   const today = new Date().toLocaleDateString();
-  document.getElementById('printBalanceMeta').textContent = `As of ${today}   •   ${players.length} player${players.length===1?'':'s'}`;
-  const body = document.getElementById('printBalanceBody');
+  document.getElementById(metaId).textContent = `As of ${today}   •   ${players.length} player${players.length===1?'':'s'}`;
+  const body = document.getElementById(bodyId);
   body.innerHTML = '';
   players.forEach(p=>{
     const bal = Number(p.balance || 0);
@@ -1587,6 +1618,30 @@ function downloadBalancePDF(){
     tr.appendChild(nameTd); tr.appendChild(amountTd); tr.appendChild(statusTd);
     body.appendChild(tr);
   });
+}
+
+function setPrintMode(mode){
+  document.body.classList.toggle('print-attendance', mode === 'attendance');
+  document.body.classList.toggle('print-balance', mode === 'balance');
+  document.body.classList.toggle('print-both', mode === 'both');
+}
+
+function downloadPDF(){
+  setPrintMode('attendance');
+  fillAttendanceMarkup('printMeta', 'printA', 'printB');
+  window.print();
+}
+
+function downloadBalancePDF(){
+  setPrintMode('balance');
+  fillBalanceMarkup('printBalanceMeta', 'printBalanceBody');
+  window.print();
+}
+
+function downloadBothPDF(){
+  setPrintMode('both');
+  fillAttendanceMarkup('printBothAttendMeta', 'printBothA', 'printBothB');
+  fillBalanceMarkup('printBothBalanceMeta', 'printBothBalanceBody');
   window.print();
 }
 

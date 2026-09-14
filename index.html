@@ -328,28 +328,40 @@
   }
   .balance-row{
     display:flex;
-    align-items:center;
-    gap:10px;
-    padding:11px 0;
+    flex-direction:column;
+    gap:8px;
+    padding:12px 0;
     border-bottom:1px solid var(--line);
   }
+  .balance-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
   .balance-name{
-    flex:1;
     font-size:15px;
     font-weight:600;
     color:var(--chalk);
   }
+  .balance-amounts{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+  }
   .balance-amount{
     font-family:'Bebas Neue',sans-serif;
-    font-size:19px;
+    font-size:18px;
     letter-spacing:0.3px;
     color:var(--turf-bright);
-    min-width:64px;
-    text-align:right;
   }
   .balance-amount.low{color:var(--red);}
   .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
   .balance-amount.editable:hover{border-bottom-color:var(--muted);}
+  .balance-summary{border-top:1px solid var(--line);margin-top:2px;padding-top:14px;}
+  .balance-summary .balance-name{color:var(--muted);font-weight:600;}
+  .balance-summary .balance-amount{font-size:20px;color:var(--amber);}
   .renew-tag{
     font-size:11px;
     font-weight:700;
@@ -601,6 +613,7 @@
     .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:25%;text-align:left;}
     .balance-table td.amount{font-weight:600;}
     .balance-table td.status{color:#a11;font-weight:600;}
+    .balance-table .summary-row td{border-top:2px solid #000;border-bottom:none;font-weight:700;}
     .record-table th:nth-child(1), .record-table td:nth-child(1){width:50%;}
     .record-table th:nth-child(2), .record-table td:nth-child(2){width:50%;}
   }
@@ -720,7 +733,14 @@
     font-size:12px;
     color:var(--muted);
   }
+  .who-info{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
   .user-bar .who{color:var(--chalk);font-weight:600;}
+  .my-balance{font-size:11px;color:var(--turf-bright);font-weight:600;}
+  .my-balance.low{color:var(--red);}
   .logout-btn{
     background:none;
     border:1px solid var(--line);
@@ -877,7 +897,10 @@
 <div class="app" id="appWrap" style="display:none">
 
   <div class="user-bar">
-    <span>Signed in as <span class="who" id="whoAmI"></span></span>
+    <div class="who-info">
+      <span>Signed in as <span class="who" id="whoAmI"></span></span>
+      <span class="my-balance" id="myBalance"></span>
+    </div>
     <button class="logout-btn" onclick="handleLogout()">Log out</button>
   </div>
 
@@ -922,6 +945,7 @@
 
   <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
   <div class="roster" id="rosterList"></div>
+  <button class="reset-btn admin-only" style="margin:2px 0 12px" onclick="resetPlayers()">Reset all attendance</button>
   <button class="download-btn" style="margin:2px 0 30px" onclick="downloadPDF()">Download attendance PDF</button>
 
   <div class="section-title">Balance</div>
@@ -963,7 +987,6 @@
 
   <div class="actions">
     <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
-    <button class="reset-btn admin-only" onclick="resetPlayers()">Reset all attendance</button>
     <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
     <span class="note admin-only">Changes sync live — everyone signed in sees the same roster in real time.</span>
     <span class="status-msg" id="statusMsg"></span>
@@ -1570,6 +1593,16 @@ function render(){
   document.getElementById('recordAScore').textContent = `${aWins}W – ${bWins}L – ${draws}D`;
   document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
 
+  const myBalanceEl = document.getElementById('myBalance');
+  const mine = players.find(p => p.id === myPlayerId);
+  if(mine){
+    const myBal = Number(mine.balance || 0);
+    myBalanceEl.textContent = 'Balance: Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
+    myBalanceEl.classList.toggle('low', myBal <= 0);
+  } else {
+    myBalanceEl.textContent = '';
+  }
+
   const rosterList = document.getElementById('rosterList');
   rosterList.innerHTML = '';
   document.getElementById('rosterCount').textContent = players.length ? `(${players.length})` : '';
@@ -1635,15 +1668,22 @@ function render(){
   if(players.length === 0){
     balanceList.innerHTML = '<div class="empty-note">No players yet.</div>';
   }
+  let balanceSum = 0;
   players.forEach(p=>{
+    const bal = Number(p.balance || 0);
+    balanceSum += bal;
+
     const row = document.createElement('div');
     row.className = 'balance-row';
+
+    const top = document.createElement('div');
+    top.className = 'balance-top';
 
     const name = document.createElement('span');
     name.className = 'balance-name';
     name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+    top.appendChild(name);
 
-    const bal = Number(p.balance || 0);
     const amount = document.createElement('span');
     amount.className = 'balance-amount' + (bal <= 0 ? ' low' : '') + (isAdmin ? ' editable' : '');
     amount.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
@@ -1651,35 +1691,58 @@ function render(){
       amount.title = 'Tap to set balance';
       amount.onclick = ()=>editBalance(p.id);
     }
+    top.appendChild(amount);
+    row.appendChild(top);
 
-    row.appendChild(name);
-    row.appendChild(amount);
+    if(p.payment_reminder || isAdmin){
+      const amounts = document.createElement('div');
+      amounts.className = 'balance-amounts';
 
-    if(p.payment_reminder){
-      const tag = document.createElement('span');
-      tag.className = 'renew-tag';
-      tag.textContent = 'Renew payment';
-      row.appendChild(tag);
-    }
+      if(p.payment_reminder){
+        const tag = document.createElement('span');
+        tag.className = 'renew-tag';
+        tag.textContent = 'Renew payment';
+        amounts.appendChild(tag);
+      }
 
-    if(isAdmin){
-      const addBtn = document.createElement('button');
-      addBtn.className = 'balance-add-btn';
-      addBtn.textContent = '+ Add';
-      addBtn.title = 'Add to balance';
-      addBtn.onclick = ()=>addBalance(p.id);
-      row.appendChild(addBtn);
+      if(isAdmin){
+        const addBtn = document.createElement('button');
+        addBtn.className = 'balance-add-btn';
+        addBtn.textContent = '+ Add';
+        addBtn.title = 'Add to balance';
+        addBtn.onclick = ()=>addBalance(p.id);
+        amounts.appendChild(addBtn);
 
-      const renewBtn = document.createElement('button');
-      renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');
-      renewBtn.textContent = p.payment_reminder ? 'Reminder sent' : 'Send renew payment';
-      renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
-      renewBtn.onclick = ()=>toggleRenewReminder(p.id);
-      row.appendChild(renewBtn);
+        const renewBtn = document.createElement('button');
+        renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');
+        renewBtn.textContent = p.payment_reminder ? 'Reminder sent' : 'Send renew payment';
+        renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
+        renewBtn.onclick = ()=>toggleRenewReminder(p.id);
+        amounts.appendChild(renewBtn);
+      }
+
+      row.appendChild(amounts);
     }
 
     balanceList.appendChild(row);
   });
+
+  if(players.length > 0){
+    const summaryRow = document.createElement('div');
+    summaryRow.className = 'balance-row balance-summary';
+    const summaryTop = document.createElement('div');
+    summaryTop.className = 'balance-top';
+    const summaryLabel = document.createElement('span');
+    summaryLabel.className = 'balance-name';
+    summaryLabel.textContent = 'Remaining balance (all players)';
+    const summaryValue = document.createElement('span');
+    summaryValue.className = 'balance-amount' + (balanceSum <= 0 ? ' low' : '');
+    summaryValue.textContent = 'Rs. ' + (Number.isInteger(balanceSum) ? balanceSum : balanceSum.toFixed(2));
+    summaryTop.appendChild(summaryLabel);
+    summaryTop.appendChild(summaryValue);
+    summaryRow.appendChild(summaryTop);
+    balanceList.appendChild(summaryRow);
+  }
 
   // Groups section
   const yesPlayers = players.filter(p=>p.attend==='yes');
@@ -1741,8 +1804,10 @@ function fillBalanceMarkup(metaId, bodyId){
   document.getElementById(metaId).textContent = `As of ${today}   •   ${players.length} player${players.length===1?'':'s'}`;
   const body = document.getElementById(bodyId);
   body.innerHTML = '';
+  let sum = 0;
   players.forEach(p=>{
     const bal = Number(p.balance || 0);
+    sum += bal;
     const tr = document.createElement('tr');
     const nameTd = document.createElement('td'); nameTd.textContent = p.display_name;
     const amountTd = document.createElement('td'); amountTd.className = 'amount';
@@ -1752,6 +1817,16 @@ function fillBalanceMarkup(metaId, bodyId){
     tr.appendChild(nameTd); tr.appendChild(amountTd); tr.appendChild(statusTd);
     body.appendChild(tr);
   });
+  if(players.length > 0){
+    const sumTr = document.createElement('tr');
+    sumTr.className = 'summary-row';
+    const sumLabelTd = document.createElement('td'); sumLabelTd.textContent = 'Remaining balance (all players)';
+    const sumAmountTd = document.createElement('td'); sumAmountTd.className = 'amount';
+    sumAmountTd.textContent = 'Rs. ' + (Number.isInteger(sum) ? sum : sum.toFixed(2));
+    const sumStatusTd = document.createElement('td');
+    sumTr.appendChild(sumLabelTd); sumTr.appendChild(sumAmountTd); sumTr.appendChild(sumStatusTd);
+    body.appendChild(sumTr);
+  }
 }
 
 function fillRecordMarkup(metaId, bodyId){

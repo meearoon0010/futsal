@@ -1044,7 +1044,16 @@
 </div>
 
 <div id="printableAll">
-  <h1>Futsal — Attendance</h1>
+  <h1>Futsal — Season Record</h1>
+  <div class="meta" id="printAllRecordMeta"></div>
+  <table class="record-table">
+    <thead>
+      <tr><th>Group</th><th>Record (W–L–D)</th></tr>
+    </thead>
+    <tbody id="printAllRecordBody"></tbody>
+  </table>
+
+  <h1 class="second-title">Futsal — Attendance</h1>
   <div class="meta" id="printAllAttendMeta"></div>
   <div class="cols">
     <div class="col">
@@ -1064,15 +1073,6 @@
       <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
     </thead>
     <tbody id="printAllBalanceBody"></tbody>
-  </table>
-
-  <h1 class="second-title">Futsal — Season Record</h1>
-  <div class="meta" id="printAllRecordMeta"></div>
-  <table class="record-table">
-    <thead>
-      <tr><th>Group</th><th>Record (W–L–D)</th></tr>
-    </thead>
-    <tbody id="printAllRecordBody"></tbody>
   </table>
 </div>
 
@@ -1847,9 +1847,9 @@ function downloadBalancePDF(){
 
 function downloadAllPDF(){
   setPrintMode('all');
+  fillRecordMarkup('printAllRecordMeta', 'printAllRecordBody');
   fillAttendanceMarkup('printAllAttendMeta', 'printAllA', 'printAllB');
   fillBalanceMarkup('printAllBalanceMeta', 'printAllBalanceBody');
-  fillRecordMarkup('printAllRecordMeta', 'printAllRecordBody');
   window.print();
 }
 

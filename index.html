@@ -357,19 +357,21 @@
     color:var(--turf-bright);
   }
   .balance-amount.low{color:var(--red);}
+  .balance-amount.renew-flag{
+    color:var(--red);
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.3px;
+    border:1px solid var(--red);
+    padding:3px 8px;
+  }
   .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
   .balance-amount.editable:hover{border-bottom-color:var(--muted);}
+  .balance-amount.renew-flag.editable:hover{border-bottom-color:transparent;background:var(--red);color:var(--chalk);}
   .balance-summary{border-top:1px solid var(--line);margin-top:2px;padding-top:14px;}
   .balance-summary .balance-name{color:var(--muted);font-weight:600;}
   .balance-summary .balance-amount{font-size:20px;color:var(--amber);}
-  .renew-tag{
-    font-size:11px;
-    font-weight:700;
-    color:var(--red);
-    border:1px solid var(--red);
-    padding:4px 8px;
-    white-space:nowrap;
-  }
   .balance-add-btn{
     background:none;
     border:1px solid var(--line);
@@ -556,16 +558,15 @@
   }
 
   /* ---------- Print / PDF view ---------- */
-  #printable, #printableBalance, #printableRecord, #printableAll{display:none;}
+  #printable, #printableBalance, #printableAll{display:none;}
 
   @media print{
     body::before{display:none;}
     body *{visibility:hidden;}
     body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
     body.print-balance #printableBalance, body.print-balance #printableBalance *{visibility:visible;}
-    body.print-record #printableRecord, body.print-record #printableRecord *{visibility:visible;}
     body.print-all #printableAll, body.print-all #printableAll *{visibility:visible;}
-    #printable, #printableBalance, #printableRecord, #printableAll{
+    #printable, #printableBalance, #printableAll{
       display:block;
       position:absolute;
       top:0;left:0;
@@ -574,13 +575,13 @@
       color:#000;
       padding:20px;
     }
-    #printable h1, #printableBalance h1, #printableRecord h1, #printableAll h1{
+    #printable h1, #printableBalance h1, #printableAll h1{
       font-family:'Bebas Neue',sans-serif;
       font-size:30px;
       margin:0 0 4px;
     }
     #printableAll h1.second-title{margin-top:26px;page-break-before:always;}
-    #printable .meta, #printableBalance .meta, #printableRecord .meta, #printableAll .meta{font-size:13px;margin-bottom:16px;color:#333;}
+    #printable .meta, #printableBalance .meta, #printableAll .meta{font-size:13px;margin-bottom:16px;color:#333;}
     #printable .cols, #printableAll .cols{display:flex;gap:30px;}
     #printable .col, #printableAll .col{flex:1;}
     #printable .col h2, #printableAll .col h2{
@@ -592,9 +593,8 @@
     }
     #printable ol, #printableAll ol{padding-left:18px;margin:0;}
     #printable li, #printableAll li{padding:3px 0;font-size:14px;}
-    #printableBalance table, #printableRecord table, #printableAll table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    #printableBalance table, #printableAll table{width:100%;border-collapse:collapse;table-layout:fixed;}
     #printableBalance th, #printableBalance td,
-    #printableRecord th, #printableRecord td,
     #printableAll th, #printableAll td{
       text-align:left;
       padding:7px 6px;
@@ -602,7 +602,7 @@
       font-size:14px;
       word-wrap:break-word;
     }
-    #printableBalance th, #printableRecord th, #printableAll th{
+    #printableBalance th, #printableAll th{
       font-family:'Bebas Neue',sans-serif;
       font-size:15px;
       letter-spacing:0.3px;
@@ -933,7 +933,7 @@
     </div>
   </div>
 
-  <div class="add-row">
+  <div class="add-row admin-only">
     <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
     <select id="newPlayerGroup" title="Assign to a group (optional)">
       <option value="">No group yet</option>
@@ -942,6 +942,11 @@
     </select>
     <button onclick="addPlayer()">Add</button>
   </div>
+
+  <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
+  <div class="roster" id="rosterList"></div>
+  <button class="reset-btn admin-only" style="margin:2px 0 12px" onclick="resetPlayers()">Reset all attendance</button>
+  <button class="download-btn" style="margin:2px 0 30px" onclick="downloadPDF()">Download attendance PDF</button>
 
   <div class="section-title">Season Record</div>
   <div class="record-wrap">
@@ -954,18 +959,12 @@
       <div class="record-score" id="recordBScore">0W – 0L – 0D</div>
     </div>
   </div>
-  <div class="record-actions admin-only">
+  <div class="record-actions admin-only" style="margin-bottom:30px">
     <button class="record-btn a" onclick="recordResult('A')">Group A won</button>
     <button class="record-btn draw" onclick="recordResult('draw')">Draw</button>
     <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
     <button class="record-reset" onclick="resetRecord()">Reset record</button>
   </div>
-  <button class="balance-pdf-btn" onclick="downloadRecordPDF()">Download season record PDF</button>
-
-  <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
-  <div class="roster" id="rosterList"></div>
-  <button class="reset-btn admin-only" style="margin:2px 0 12px" onclick="resetPlayers()">Reset all attendance</button>
-  <button class="download-btn" style="margin:2px 0 30px" onclick="downloadPDF()">Download attendance PDF</button>
 
   <div class="groups-wrap" id="groupsWrap" style="display:none">
     <div class="section-title">Teams — Confirmed Players</div>
@@ -1041,17 +1040,6 @@
       <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
     </thead>
     <tbody id="printBalanceBody"></tbody>
-  </table>
-</div>
-
-<div id="printableRecord">
-  <h1>Futsal — Season Record</h1>
-  <div class="meta" id="printRecordMeta"></div>
-  <table class="record-table">
-    <thead>
-      <tr><th>Group</th><th>Record (W–L–D)</th></tr>
-    </thead>
-    <tbody id="printRecordBody"></tbody>
   </table>
 </div>
 
@@ -1685,8 +1673,9 @@ function render(){
     top.appendChild(name);
 
     const amount = document.createElement('span');
-    amount.className = 'balance-amount' + (bal <= 0 ? ' low' : '') + (isAdmin ? ' editable' : '');
-    amount.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
+    const reminded = !!p.payment_reminder;
+    amount.className = 'balance-amount' + (reminded ? ' renew-flag' : (bal <= 0 ? ' low' : '')) + (isAdmin ? ' editable' : '');
+    amount.textContent = reminded ? 'Renew payment' : ('Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2)));
     if(isAdmin){
       amount.title = 'Tap to set balance';
       amount.onclick = ()=>editBalance(p.id);
@@ -1694,32 +1683,23 @@ function render(){
     top.appendChild(amount);
     row.appendChild(top);
 
-    if(p.payment_reminder || isAdmin){
+    if(isAdmin){
       const amounts = document.createElement('div');
       amounts.className = 'balance-amounts';
 
-      if(p.payment_reminder){
-        const tag = document.createElement('span');
-        tag.className = 'renew-tag';
-        tag.textContent = 'Renew payment';
-        amounts.appendChild(tag);
-      }
+      const addBtn = document.createElement('button');
+      addBtn.className = 'balance-add-btn';
+      addBtn.textContent = '+ Add';
+      addBtn.title = 'Add to balance';
+      addBtn.onclick = ()=>addBalance(p.id);
+      amounts.appendChild(addBtn);
 
-      if(isAdmin){
-        const addBtn = document.createElement('button');
-        addBtn.className = 'balance-add-btn';
-        addBtn.textContent = '+ Add';
-        addBtn.title = 'Add to balance';
-        addBtn.onclick = ()=>addBalance(p.id);
-        amounts.appendChild(addBtn);
-
-        const renewBtn = document.createElement('button');
-        renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');
-        renewBtn.textContent = p.payment_reminder ? 'Reminder sent' : 'Send renew payment';
-        renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
-        renewBtn.onclick = ()=>toggleRenewReminder(p.id);
-        amounts.appendChild(renewBtn);
-      }
+      const renewBtn = document.createElement('button');
+      renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');
+      renewBtn.textContent = p.payment_reminder ? 'Reminder sent' : 'Send renew payment';
+      renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
+      renewBtn.onclick = ()=>toggleRenewReminder(p.id);
+      amounts.appendChild(renewBtn);
 
       row.appendChild(amounts);
     }
@@ -1850,7 +1830,6 @@ function fillRecordMarkup(metaId, bodyId){
 function setPrintMode(mode){
   document.body.classList.toggle('print-attendance', mode === 'attendance');
   document.body.classList.toggle('print-balance', mode === 'balance');
-  document.body.classList.toggle('print-record', mode === 'record');
   document.body.classList.toggle('print-all', mode === 'all');
 }
 
@@ -1863,12 +1842,6 @@ function downloadPDF(){
 function downloadBalancePDF(){
   setPrintMode('balance');
   fillBalanceMarkup('printBalanceMeta', 'printBalanceBody');
-  window.print();
-}
-
-function downloadRecordPDF(){
-  setPrintMode('record');
-  fillRecordMarkup('printRecordMeta', 'printRecordBody');
   window.print();
 }
 

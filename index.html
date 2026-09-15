@@ -225,6 +225,8 @@
     display:flex;
     justify-content:space-between;
     align-items:baseline;
+    cursor:pointer;
+    user-select:none;
   }
   .section-title .count{
     font-family:'Inter',sans-serif;
@@ -232,6 +234,13 @@
     color:var(--muted);
     font-weight:600;
   }
+  .section-toggle{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    color:var(--muted);
+    flex-shrink:0;
+  }
+  .section-title:hover .section-toggle{color:var(--amber);}
 
   .roster{
     display:flex;
@@ -1002,55 +1011,80 @@
     <button onclick="addPlayer()">Add</button>
   </div>
 
-  <div class="section-title">Roster <span class="count" id="rosterCount"></span></div>
-  <div class="roster" id="rosterList"></div>
-  <button class="reset-btn admin-only" style="margin:2px 0 30px" onclick="resetPlayers()">Reset all attendance</button>
-
-  <div class="section-title">Season Record</div>
-  <div class="record-wrap">
-    <div class="record-card A">
-      <h3>Group A</h3>
-      <div class="record-score" id="recordAScore">0W – 0L – 0D</div>
-    </div>
-    <div class="record-card B">
-      <h3>Group B</h3>
-      <div class="record-score" id="recordBScore">0W – 0L – 0D</div>
-    </div>
+  <div class="section-title" onclick="toggleSection('roster')">
+    <span>Roster <span class="count" id="rosterCount"></span></span>
+    <span class="section-toggle" id="rosterToggle">▾</span>
   </div>
-  <div class="record-actions admin-only" style="margin-bottom:30px">
-    <button class="record-btn a" onclick="recordResult('A')">Group A won</button>
-    <button class="record-btn draw" onclick="recordResult('draw')">Draw</button>
-    <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
-    <button class="record-reset" onclick="resetRecord()">Reset record</button>
+  <div class="section-body" id="rosterBody">
+    <div class="roster" id="rosterList"></div>
+    <button class="reset-btn admin-only" style="margin:2px 0 30px" onclick="resetPlayers()">Reset all attendance</button>
+  </div>
+
+  <div class="section-title" onclick="toggleSection('record')">
+    <span>Season Record</span>
+    <span class="section-toggle" id="recordToggle">▾</span>
+  </div>
+  <div class="section-body" id="recordBody">
+    <div class="record-wrap">
+      <div class="record-card A">
+        <h3>Group A</h3>
+        <div class="record-score" id="recordAScore">0W – 0L – 0D</div>
+      </div>
+      <div class="record-card B">
+        <h3>Group B</h3>
+        <div class="record-score" id="recordBScore">0W – 0L – 0D</div>
+      </div>
+    </div>
+    <div class="record-actions admin-only" style="margin-bottom:30px">
+      <button class="record-btn a" onclick="recordResult('A')">Group A won</button>
+      <button class="record-btn draw" onclick="recordResult('draw')">Draw</button>
+      <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
+      <button class="record-reset" onclick="resetRecord()">Reset record</button>
+    </div>
   </div>
 
   <div class="groups-wrap" id="groupsWrap" style="display:none">
-    <div class="section-title">Teams — Confirmed Players</div>
-    <div class="groups-grid">
-      <div class="bib A">
-        <h3>Group A</h3>
-        <ul id="groupAList"></ul>
+    <div class="section-title" onclick="toggleSection('teams')">
+      <span>Teams — Confirmed Players</span>
+      <span class="section-toggle" id="teamsToggle">▾</span>
+    </div>
+    <div class="section-body" id="teamsBody">
+      <div class="groups-grid">
+        <div class="bib A">
+          <h3>Group A</h3>
+          <ul id="groupAList"></ul>
+        </div>
+        <div class="bib B">
+          <h3>Group B</h3>
+          <ul id="groupBList"></ul>
+        </div>
       </div>
-      <div class="bib B">
-        <h3>Group B</h3>
-        <ul id="groupBList"></ul>
-      </div>
+      <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
     </div>
   </div>
-  <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
 
-  <div class="section-title">Balance</div>
-  <div class="balance-list" id="balanceList"></div>
-  <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
-
-  <div class="section-title">Expenses</div>
-  <div class="add-row admin-only">
-    <input type="text" id="newExpenseVenue" placeholder="Venue">
-    <input type="number" id="newExpenseAmount" placeholder="Rs." min="0" step="0.01" style="flex:0 0 90px">
-    <button onclick="addExpense()">Add</button>
+  <div class="section-title" onclick="toggleSection('balance')">
+    <span>Balance</span>
+    <span class="section-toggle" id="balanceToggle">▾</span>
   </div>
-  <div class="expense-list" id="expenseList"></div>
-  <button class="balance-pdf-btn" onclick="downloadExpensesPDF()">Download expenses PDF</button>
+  <div class="section-body" id="balanceBody">
+    <div class="balance-list" id="balanceList"></div>
+    <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
+  </div>
+
+  <div class="section-title" onclick="toggleSection('expenses')">
+    <span>Expenses</span>
+    <span class="section-toggle" id="expensesToggle">▾</span>
+  </div>
+  <div class="section-body" id="expensesBody">
+    <div class="add-row admin-only">
+      <input type="text" id="newExpenseVenue" placeholder="Venue">
+      <input type="number" id="newExpenseAmount" placeholder="Rs." min="0" step="0.01" style="flex:0 0 90px">
+      <button onclick="addExpense()">Add</button>
+    </div>
+    <div class="expense-list" id="expenseList"></div>
+    <button class="balance-pdf-btn" onclick="downloadExpensesPDF()">Download expenses PDF</button>
+  </div>
 
   <div class="actions">
     <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
@@ -1463,6 +1497,16 @@ function setStatus(msg){
   const el = document.getElementById('statusMsg');
   el.textContent = msg;
   setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
+}
+
+/* ---------- Collapse / expand each table ---------- */
+function toggleSection(id){
+  const body = document.getElementById(id + 'Body');
+  const toggle = document.getElementById(id + 'Toggle');
+  if(!body) return;
+  const collapsing = body.style.display !== 'none';
+  body.style.display = collapsing ? 'none' : '';
+  if(toggle) toggle.textContent = collapsing ? '▸' : '▾';
 }
 
 /* ---------- Editable match info (admin only) ---------- */

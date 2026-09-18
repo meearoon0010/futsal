@@ -365,6 +365,12 @@
     flex-wrap:wrap;
     gap:10px;
   }
+  .balance-amount-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
   .balance-amount{
     font-family:'Bebas Neue',sans-serif;
     font-size:18px;
@@ -372,21 +378,38 @@
     color:var(--turf-bright);
   }
   .balance-amount.low{color:var(--red);}
-  .balance-amount.renew-flag{
-    color:var(--red);
-    font-family:'Inter',sans-serif;
-    font-size:12px;
-    font-weight:700;
-    letter-spacing:0.3px;
-    border:1px solid var(--red);
-    padding:3px 8px;
-  }
   .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
   .balance-amount.editable:hover{border-bottom-color:var(--muted);}
-  .balance-amount.renew-flag.editable:hover{border-bottom-color:transparent;background:var(--red);color:var(--chalk);}
+  .renew-tag{
+    font-size:11px;
+    font-weight:700;
+    color:var(--red);
+    border:1px solid var(--red);
+    padding:3px 8px;
+    white-space:nowrap;
+  }
   .balance-summary{border-top:1px solid var(--line);margin-top:2px;padding-top:14px;}
   .balance-summary .balance-name{color:var(--muted);font-weight:600;}
   .balance-summary .balance-amount{font-size:20px;color:var(--amber);}
+  .history-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:8px;
+    padding-top:8px;
+    border-top:1px dashed var(--line);
+  }
+  .history-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+  }
+  .history-amount{font-weight:700;min-width:70px;}
+  .history-amount.pos{color:var(--turf-bright);}
+  .history-amount.neg{color:var(--red);}
+  .history-resulting{color:var(--muted);flex:1;}
+  .history-date{color:var(--muted);font-size:11px;white-space:nowrap;}
   .balance-add-btn{
     background:none;
     border:1px solid var(--line);
@@ -816,6 +839,26 @@
   .user-bar .who{color:var(--chalk);font-weight:600;}
   .my-balance{font-size:11px;color:var(--turf-bright);font-weight:600;}
   .my-balance.low{color:var(--red);}
+  .my-history-toggle{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:11px;
+    font-weight:600;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+    margin-left:8px;
+  }
+  .my-history-toggle:hover{color:var(--amber);}
+  .my-history{
+    margin:-10px 0 18px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    background:var(--bg-panel);
+  }
+  .my-history .history-list{border-top:none;margin-top:0;padding-top:0;}
+  .my-history .empty-note{padding:0;}
   .logout-btn{
     background:none;
     border:1px solid var(--line);
@@ -974,10 +1017,14 @@
   <div class="user-bar">
     <div class="who-info">
       <span>Signed in as <span class="who" id="whoAmI"></span></span>
-      <span class="my-balance" id="myBalance"></span>
+      <span>
+        <span class="my-balance" id="myBalance"></span>
+        <button class="my-history-toggle" id="myHistoryToggle" onclick="toggleMyHistory()" style="display:none">History</button>
+      </span>
     </div>
     <button class="logout-btn" onclick="handleLogout()">Log out</button>
   </div>
+  <div class="my-history" id="myHistoryList" style="display:none"></div>
 
   <div class="masthead">
     <div class="wordmark">
@@ -1318,6 +1365,10 @@ let isAdmin = false;
 let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', a_wins: 0, b_wins: 0, draws: 0 };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
+let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
+let expandedHistory = new Set(); // player ids whose history is expanded (admin view, in the Balance table)
+let myHistoryExpanded = false; // whether the signed-in user's own history is expanded (in the profile bar)
+const LOW_BALANCE_THRESHOLD = 200;
 let myUserId = null;
 let myPlayerId = null;
 let loaded = false;
@@ -1372,6 +1423,8 @@ function showAuthScreen(){
   myUserId = null;
   prevMineAttend = undefined;
   attendPromptDismissed = false;
+  expandedHistory.clear();
+  myHistoryExpanded = false;
 }
 
 sbClient.auth.onAuthStateChange((_event, session) => {
@@ -1395,14 +1448,16 @@ async function ensureMyPlayerRow(displayName){
 }
 
 async function loadAllData(){
-  const [matchResult, playersResult, expensesResult] = await Promise.all([
+  const [matchResult, playersResult, expensesResult, txResult] = await Promise.all([
     sbClient.from('match_info').select('*').eq('id', 1).single(),
     sbClient.from('players').select('*').order('created_at', { ascending: true }),
-    sbClient.from('expenses').select('*').order('spent_on', { ascending: false }).order('created_at', { ascending: false })
+    sbClient.from('expenses').select('*').order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
+    sbClient.from('balance_transactions').select('*').order('created_at', { ascending: false })
   ]);
   if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
   if(!playersResult.error) players = playersResult.data || [];
   if(!expensesResult.error) expenses = expensesResult.data || [];
+  if(!txResult.error) balanceTransactions = txResult.data || [];
   const mine = players.find(p => p.user_id === myUserId);
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
@@ -1497,6 +1552,7 @@ function subscribeRealtime(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadAllData())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, () => loadAllData())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'balance_transactions' }, () => loadAllData())
     .subscribe();
 }
 
@@ -1690,24 +1746,49 @@ async function setBalance(id, newBalance, dateOverride){
   if(!isAdmin) return;
   const p = players.find(p=>p.id===id);
   if(!p) return;
+  const oldBalance = Number(p.balance || 0);
   const val = Math.round(newBalance * 100) / 100;
+  const delta = Math.round((val - oldBalance) * 100) / 100;
   const dateStr = dateOverride || todayStr();
   const wasReminded = !!p.payment_reminder;
+  const belowThreshold = val < LOW_BALANCE_THRESHOLD;
+  // Re-arm the reminder automatically if still (or newly) below the
+  // threshold, but don't reset its timestamp if it was already flagged —
+  // that would pop the "renew payment" message again for no new reason.
+  const reminderAt = belowThreshold
+    ? (wasReminded && p.payment_reminder_at ? p.payment_reminder_at : new Date().toISOString())
+    : null;
+
   p.balance = val; // optimistic
   p.balance_updated_at = dateStr;
-  p.payment_reminder = false; // changing the balance clears any pending "renew payment" status
-  p.payment_reminder_at = null;
+  p.payment_reminder = belowThreshold;
+  p.payment_reminder_at = reminderAt;
   render();
+
   const { error } = await sbClient.from('players')
-    .update({ balance: val, balance_updated_at: dateStr, payment_reminder: false, payment_reminder_at: null })
+    .update({ balance: val, balance_updated_at: dateStr, payment_reminder: belowThreshold, payment_reminder_at: reminderAt })
     .eq('id', id);
   if(error){
     setStatus('Could not save balance — try again');
     return;
   }
-  setStatus(wasReminded
-    ? `Balance updated for ${p.display_name} — renew payment status cleared`
-    : `Balance updated for ${p.display_name}`);
+
+  if(delta !== 0){
+    const { data: txData, error: txError } = await sbClient.from('balance_transactions')
+      .insert({ player_id: id, amount: delta, resulting_balance: val })
+      .select()
+      .single();
+    if(!txError && txData) balanceTransactions.unshift(txData);
+  }
+  render();
+
+  if(belowThreshold){
+    setStatus(`Balance updated for ${p.display_name} — below Rs. ${LOW_BALANCE_THRESHOLD}, renew payment flagged`);
+  } else {
+    setStatus(wasReminded
+      ? `Balance updated for ${p.display_name} — renew payment status cleared`
+      : `Balance updated for ${p.display_name}`);
+  }
 }
 
 function editBalance(id){
@@ -1757,6 +1838,54 @@ function editBalanceDate(id){
   setBalanceDate(id, trimmed);
 }
 
+/* ---------- Balance transaction history ---------- */
+function buildHistoryList(playerId){
+  const txs = balanceTransactions.filter(t => t.player_id === playerId);
+  const wrap = document.createElement('div');
+  wrap.className = 'history-list';
+  if(txs.length === 0){
+    wrap.innerHTML = '<div class="empty-note">No balance changes logged yet.</div>';
+    return wrap;
+  }
+  txs.forEach(t=>{
+    const amt = Number(t.amount || 0);
+    const resBal = Number(t.resulting_balance || 0);
+    const row = document.createElement('div');
+    row.className = 'history-row';
+
+    const amtEl = document.createElement('span');
+    amtEl.className = 'history-amount' + (amt >= 0 ? ' pos' : ' neg');
+    const absAmt = Math.abs(amt);
+    amtEl.textContent = (amt >= 0 ? '+ Rs. ' : '− Rs. ') + (Number.isInteger(absAmt) ? absAmt : absAmt.toFixed(2));
+
+    const resEl = document.createElement('span');
+    resEl.className = 'history-resulting';
+    resEl.textContent = '→ Rs. ' + (Number.isInteger(resBal) ? resBal : resBal.toFixed(2));
+
+    const dateEl = document.createElement('span');
+    dateEl.className = 'history-date';
+    dateEl.textContent = new Date(t.created_at).toLocaleDateString();
+
+    row.appendChild(amtEl);
+    row.appendChild(resEl);
+    row.appendChild(dateEl);
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+function toggleBalanceHistory(id){
+  if(!isAdmin) return;
+  if(expandedHistory.has(id)) expandedHistory.delete(id);
+  else expandedHistory.add(id);
+  render();
+}
+
+function toggleMyHistory(){
+  myHistoryExpanded = !myHistoryExpanded;
+  render();
+}
+
 async function toggleRenewReminder(id){
   if(!isAdmin) return;
   const p = players.find(p=>p.id===id);
@@ -1787,13 +1916,27 @@ function render(){
   document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
 
   const myBalanceEl = document.getElementById('myBalance');
+  const myHistoryToggle = document.getElementById('myHistoryToggle');
+  const myHistoryList = document.getElementById('myHistoryList');
   const mine = players.find(p => p.id === myPlayerId);
   if(mine){
     const myBal = Number(mine.balance || 0);
     myBalanceEl.textContent = 'Balance: Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
     myBalanceEl.classList.toggle('low', myBal <= 0);
+    const myTxCount = balanceTransactions.filter(t => t.player_id === mine.id).length;
+    myHistoryToggle.style.display = '';
+    myHistoryToggle.textContent = (myHistoryExpanded ? 'Hide history' : 'History') + (myTxCount ? ` (${myTxCount})` : '');
+    if(myHistoryExpanded){
+      myHistoryList.innerHTML = '';
+      myHistoryList.appendChild(buildHistoryList(mine.id));
+      myHistoryList.style.display = 'block';
+    } else {
+      myHistoryList.style.display = 'none';
+    }
   } else {
     myBalanceEl.textContent = '';
+    myHistoryToggle.style.display = 'none';
+    myHistoryList.style.display = 'none';
   }
 
   const rosterList = document.getElementById('rosterList');
@@ -1877,15 +2020,25 @@ function render(){
     name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
     top.appendChild(name);
 
+    const amountGroup = document.createElement('span');
+    amountGroup.className = 'balance-amount-group';
+
     const amount = document.createElement('span');
     const reminded = !!p.payment_reminder;
-    amount.className = 'balance-amount' + (reminded ? ' renew-flag' : (bal <= 0 ? ' low' : '')) + (isAdmin ? ' editable' : '');
-    amount.textContent = reminded ? 'Renew payment' : ('Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2)));
+    amount.className = 'balance-amount' + (bal <= 0 ? ' low' : '') + (isAdmin ? ' editable' : '');
+    amount.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
     if(isAdmin){
       amount.title = 'Tap to set balance';
       amount.onclick = ()=>editBalance(p.id);
     }
-    top.appendChild(amount);
+    amountGroup.appendChild(amount);
+    if(reminded){
+      const tag = document.createElement('span');
+      tag.className = 'renew-tag';
+      tag.textContent = 'Renew payment';
+      amountGroup.appendChild(tag);
+    }
+    top.appendChild(amountGroup);
     row.appendChild(top);
 
     const dateStr = p.balance_updated_at;
@@ -1918,7 +2071,18 @@ function render(){
       renewBtn.onclick = ()=>toggleRenewReminder(p.id);
       amounts.appendChild(renewBtn);
 
+      const txCount = balanceTransactions.filter(t => t.player_id === p.id).length;
+      const historyBtn = document.createElement('button');
+      historyBtn.className = 'balance-add-btn';
+      historyBtn.textContent = (expandedHistory.has(p.id) ? 'Hide history' : 'History') + (txCount ? ` (${txCount})` : '');
+      historyBtn.onclick = ()=>toggleBalanceHistory(p.id);
+      amounts.appendChild(historyBtn);
+
       row.appendChild(amounts);
+
+      if(expandedHistory.has(p.id)){
+        row.appendChild(buildHistoryList(p.id));
+      }
     }
 
     balanceList.appendChild(row);

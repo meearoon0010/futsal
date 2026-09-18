@@ -353,6 +353,12 @@
     font-weight:600;
     color:var(--chalk);
   }
+  .balance-date{
+    font-size:11px;
+    color:var(--muted);
+  }
+  .balance-date.editable{cursor:pointer;border-bottom:1px dashed transparent;}
+  .balance-date.editable:hover{border-bottom-color:var(--muted);color:var(--chalk);}
   .balance-amounts{
     display:flex;
     align-items:center;
@@ -671,9 +677,10 @@
       letter-spacing:0.3px;
       border-bottom:2px solid #000;
     }
-    .balance-table th:nth-child(1), .balance-table td:nth-child(1){width:50%;}
-    .balance-table th:nth-child(2), .balance-table td:nth-child(2){width:25%;text-align:right;}
-    .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:25%;text-align:left;}
+    .balance-table th:nth-child(1), .balance-table td:nth-child(1){width:34%;}
+    .balance-table th:nth-child(2), .balance-table td:nth-child(2){width:22%;text-align:right;}
+    .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:22%;text-align:left;}
+    .balance-table th:nth-child(4), .balance-table td:nth-child(4){width:22%;text-align:left;}
     .balance-table td.amount{font-weight:600;}
     .balance-table td.status{color:#a11;font-weight:600;}
     .balance-table .summary-row td{border-top:2px solid #000;border-bottom:none;font-weight:700;}
@@ -1139,7 +1146,7 @@
   <div class="meta" id="printBalanceMeta"></div>
   <table class="balance-table">
     <thead>
-      <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
+      <tr><th>Player</th><th>Balance</th><th>Updated</th><th>Status</th></tr>
     </thead>
     <tbody id="printBalanceBody"></tbody>
   </table>
@@ -1183,7 +1190,7 @@
   <div class="meta" id="printAllBalanceMeta"></div>
   <table class="balance-table">
     <thead>
-      <tr><th>Player</th><th>Balance</th><th>Status</th></tr>
+      <tr><th>Player</th><th>Balance</th><th>Updated</th><th>Status</th></tr>
     </thead>
     <tbody id="printAllBalanceBody"></tbody>
   </table>
@@ -1675,18 +1682,24 @@ async function deleteExpense(id){
 }
 
 /* ---------- Balance (admin sets/edits; everyone can see everyone's) ---------- */
-async function setBalance(id, newBalance){
+function todayStr(){
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+async function setBalance(id, newBalance, dateOverride){
   if(!isAdmin) return;
   const p = players.find(p=>p.id===id);
   if(!p) return;
   const val = Math.round(newBalance * 100) / 100;
+  const dateStr = dateOverride || todayStr();
   const wasReminded = !!p.payment_reminder;
   p.balance = val; // optimistic
+  p.balance_updated_at = dateStr;
   p.payment_reminder = false; // changing the balance clears any pending "renew payment" status
   p.payment_reminder_at = null;
   render();
   const { error } = await sbClient.from('players')
-    .update({ balance: val, payment_reminder: false, payment_reminder_at: null })
+    .update({ balance: val, balance_updated_at: dateStr, payment_reminder: false, payment_reminder_at: null })
     .eq('id', id);
   if(error){
     setStatus('Could not save balance — try again');
@@ -1717,6 +1730,31 @@ function addBalance(id){
   const amount = parseFloat(input);
   if(isNaN(amount)){ setStatus('Enter a valid number'); return; }
   setBalance(id, Number(p.balance || 0) + amount);
+}
+
+async function setBalanceDate(id, dateStr){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  p.balance_updated_at = dateStr; // optimistic
+  render();
+  const { error } = await sbClient.from('players').update({ balance_updated_at: dateStr }).eq('id', id);
+  setStatus(error ? 'Could not save date — try again' : `Balance date updated for ${p.display_name}`);
+}
+
+function editBalanceDate(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const current = p.balance_updated_at || todayStr();
+  const input = window.prompt(`Set the balance date for ${p.display_name} (YYYY-MM-DD) — leave as today's date unless you're backdating a payment`, current);
+  if(input === null) return;
+  const trimmed = input.trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(trimmed) || isNaN(new Date(trimmed + 'T00:00:00').getTime())){
+    setStatus('Enter a date like 2026-09-20');
+    return;
+  }
+  setBalanceDate(id, trimmed);
 }
 
 async function toggleRenewReminder(id){
@@ -1849,6 +1887,18 @@ function render(){
     }
     top.appendChild(amount);
     row.appendChild(top);
+
+    const dateStr = p.balance_updated_at;
+    if(dateStr){
+      const dateEl = document.createElement('span');
+      dateEl.className = 'balance-date' + (isAdmin ? ' editable' : '');
+      dateEl.textContent = 'Updated ' + new Date(dateStr + 'T00:00:00').toLocaleDateString();
+      if(isAdmin){
+        dateEl.title = 'Tap to change the date (e.g. to backdate a payment)';
+        dateEl.onclick = ()=>editBalanceDate(p.id);
+      }
+      row.appendChild(dateEl);
+    }
 
     if(isAdmin){
       const amounts = document.createElement('div');
@@ -2021,9 +2071,11 @@ function fillBalanceMarkup(metaId, bodyId){
     const nameTd = document.createElement('td'); nameTd.textContent = p.display_name;
     const amountTd = document.createElement('td'); amountTd.className = 'amount';
     amountTd.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
+    const dateTd = document.createElement('td');
+    dateTd.textContent = p.balance_updated_at ? new Date(p.balance_updated_at + 'T00:00:00').toLocaleDateString() : '';
     const statusTd = document.createElement('td'); statusTd.className = 'status';
     statusTd.textContent = p.payment_reminder ? 'Renew payment' : '';
-    tr.appendChild(nameTd); tr.appendChild(amountTd); tr.appendChild(statusTd);
+    tr.appendChild(nameTd); tr.appendChild(amountTd); tr.appendChild(dateTd); tr.appendChild(statusTd);
     body.appendChild(tr);
   });
   if(players.length > 0){
@@ -2032,8 +2084,9 @@ function fillBalanceMarkup(metaId, bodyId){
     const sumLabelTd = document.createElement('td'); sumLabelTd.textContent = 'Remaining balance (all players)';
     const sumAmountTd = document.createElement('td'); sumAmountTd.className = 'amount';
     sumAmountTd.textContent = 'Rs. ' + (Number.isInteger(sum) ? sum : sum.toFixed(2));
+    const sumDateTd = document.createElement('td');
     const sumStatusTd = document.createElement('td');
-    sumTr.appendChild(sumLabelTd); sumTr.appendChild(sumAmountTd); sumTr.appendChild(sumStatusTd);
+    sumTr.appendChild(sumLabelTd); sumTr.appendChild(sumAmountTd); sumTr.appendChild(sumDateTd); sumTr.appendChild(sumStatusTd);
     body.appendChild(sumTr);
   }
 }

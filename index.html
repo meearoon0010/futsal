@@ -661,6 +661,7 @@
   #printable, #printableBalance, #printableExpenses, #printableAll{display:none;}
 
   @media print{
+    @page{ margin:16mm 14mm; }
     body::before{display:none;}
     body *{visibility:hidden;}
     body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
@@ -673,57 +674,147 @@
       top:0;left:0;
       width:100%;
       background:#fff;
-      color:#000;
+      color:#161f19;
       padding:20px;
+      font-family:'Inter',sans-serif;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
     }
-    #printable h1, #printableBalance h1, #printableExpenses h1, #printableAll h1{
+
+    /* Letterhead — crest, brand, document type, and a generated timestamp.
+       Colors and borders here render regardless of the "background
+       graphics" print-dialog setting; only actual background fills
+       (table header/zebra/summary shading further down) depend on it. */
+    .print-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      border-bottom:3px solid #14231a;
+      padding-bottom:10px;
+      margin-bottom:14px;
+    }
+    .print-brand{display:flex;align-items:center;gap:10px;}
+    .print-crest{width:30px;height:30px;flex-shrink:0;}
+    .print-brand-name{
       font-family:'Bebas Neue',sans-serif;
-      font-size:30px;
-      margin:0 0 4px;
+      font-size:27px;
+      letter-spacing:0.5px;
+      line-height:1;
+      color:#14231a;
     }
-    #printableAll h1.second-title{margin-top:26px;page-break-before:always;}
-    #printable .meta, #printableBalance .meta, #printableExpenses .meta, #printableAll .meta{font-size:13px;margin-bottom:16px;color:#333;}
-    #printable .cols, #printableAll .cols{display:flex;gap:30px;}
+    .print-doc-type{
+      font-family:'Inter',sans-serif;
+      font-size:10.5px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:1.3px;
+      color:#a8671f;
+      margin-top:3px;
+    }
+    .print-generated{
+      font-family:'Inter',sans-serif;
+      font-size:10px;
+      color:#767f79;
+      text-align:right;
+      line-height:1.5;
+    }
+    .print-generated .club{
+      display:block;
+      font-weight:700;
+      color:#33403a;
+      font-size:11.5px;
+    }
+    .print-subheader{
+      display:flex;
+      align-items:baseline;
+      border-bottom:2px solid #14231a;
+      padding-bottom:6px;
+      margin:26px 0 14px;
+      page-break-before:always;
+    }
+    .print-subheader .print-doc-type{margin-top:0;font-size:15px;letter-spacing:0.4px;color:#14231a;font-family:'Bebas Neue',sans-serif;font-weight:400;text-transform:none;}
+
+    #printable .meta, #printableBalance .meta, #printableExpenses .meta, #printableAll .meta{
+      font-size:11.5px;
+      color:#565f59;
+      margin-bottom:16px;
+      padding-bottom:10px;
+      border-bottom:1px solid #ddd;
+    }
+    #printable .cols, #printableAll .cols{display:flex;gap:26px;}
     #printable .col, #printableAll .col{flex:1;}
     #printable .col h2, #printableAll .col h2{
       font-family:'Bebas Neue',sans-serif;
-      font-size:18px;
-      border-bottom:2px solid #000;
-      padding-bottom:4px;
-      margin-bottom:8px;
+      font-size:16px;
+      letter-spacing:0.4px;
+      border-bottom:2px solid #14231a;
+      padding-bottom:5px;
+      margin-bottom:6px;
+      color:#14231a;
     }
-    #printable ol, #printableAll ol{padding-left:18px;margin:0;}
-    #printable li, #printableAll li{padding:3px 0;font-size:14px;}
-    #printableBalance table, #printableExpenses table, #printableAll table{width:100%;border-collapse:collapse;table-layout:fixed;}
-    #printableBalance th, #printableBalance td,
-    #printableExpenses th, #printableExpenses td,
-    #printableAll th, #printableAll td{
+    #printable ol, #printableAll ol{list-style:none;padding-left:0;margin:0;counter-reset:squad;}
+    #printable li, #printableAll li{
+      counter-increment:squad;
+      padding:6px 2px;
+      font-size:13px;
+      border-bottom:1px solid #eee;
+    }
+    #printable li::before, #printableAll li::before{
+      content:counter(squad) '.  ';
+      color:#9aa39d;
+      font-weight:700;
+    }
+
+    #printableBalance table, #printableExpenses table, #printableAll table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      margin-bottom:2px;
+    }
+    #printableBalance thead th, #printableExpenses thead th, #printableAll thead th{
       text-align:left;
-      padding:7px 6px;
-      border-bottom:1px solid #ccc;
-      font-size:14px;
+      font-family:'Inter',sans-serif;
+      font-size:10.5px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:0.6px;
+      color:#fff;
+      background:#14231a;
+      padding:9px 8px;
+      border-bottom:2px solid #14231a;
+    }
+    #printableBalance tbody td, #printableExpenses tbody td, #printableAll tbody td{
+      padding:8px;
+      font-size:12.5px;
+      border-bottom:1px solid #e4e4e4;
       word-wrap:break-word;
     }
-    #printableBalance th, #printableExpenses th, #printableAll th{
-      font-family:'Bebas Neue',sans-serif;
-      font-size:15px;
-      letter-spacing:0.3px;
-      border-bottom:2px solid #000;
+    #printableBalance tbody tr:nth-child(even), #printableExpenses tbody tr:nth-child(even), #printableAll tbody tr:nth-child(even){
+      background:#f4f6f4;
     }
-    .balance-table th:nth-child(1), .balance-table td:nth-child(1){width:34%;}
-    .balance-table th:nth-child(2), .balance-table td:nth-child(2){width:22%;text-align:right;}
-    .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:22%;text-align:left;}
-    .balance-table th:nth-child(4), .balance-table td:nth-child(4){width:22%;text-align:left;}
-    .balance-table td.amount{font-weight:600;}
-    .balance-table td.status{color:#a11;font-weight:600;}
-    .balance-table .summary-row td{border-top:2px solid #000;border-bottom:none;font-weight:700;}
+    .balance-table th:nth-child(1), .balance-table td:nth-child(1){width:38%;}
+    .balance-table th:nth-child(2), .balance-table td:nth-child(2){width:20%;text-align:right;}
+    .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:21%;text-align:left;}
+    .balance-table th:nth-child(4), .balance-table td:nth-child(4){width:21%;text-align:left;}
+    .balance-table td.amount{font-weight:700;}
+    .balance-table td.status{color:#a31d1d;font-weight:700;}
+    .balance-table .summary-row td{border-top:2px solid #14231a;background:#fbf1dd;font-weight:800;font-size:13px;}
     .record-table th:nth-child(1), .record-table td:nth-child(1){width:50%;}
     .record-table th:nth-child(2), .record-table td:nth-child(2){width:50%;}
     .expense-table th:nth-child(1), .expense-table td:nth-child(1){width:40%;}
     .expense-table th:nth-child(2), .expense-table td:nth-child(2){width:30%;text-align:right;}
     .expense-table th:nth-child(3), .expense-table td:nth-child(3){width:30%;text-align:left;}
-    .expense-table td.amount{font-weight:600;}
-    .expense-table .summary-row td{border-top:2px solid #000;border-bottom:none;font-weight:700;}
+    .expense-table td.amount{font-weight:700;}
+    .expense-table .summary-row td{border-top:2px solid #14231a;background:#fbf1dd;font-weight:800;font-size:13px;}
+
+    .print-footer{
+      margin-top:22px;
+      padding-top:8px;
+      border-top:1px solid #ddd;
+      font-size:9px;
+      color:#9a9a9a;
+      text-align:center;
+    }
   }
 
   @media (max-width:420px){
@@ -1207,7 +1298,16 @@
 
 <!-- Printable summary, only shown to the print engine -->
 <div id="printable">
-  <h1>Futsal — Attendance</h1>
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Attendance Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printGenerated"></div>
+  </div>
   <div class="meta" id="printMeta"></div>
   <div class="cols">
     <div class="col">
@@ -1219,10 +1319,20 @@
       <ol id="printB"></ol>
     </div>
   </div>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
 </div>
 
 <div id="printableBalance">
-  <h1>Futsal — Balance</h1>
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Balance Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printBalanceGenerated"></div>
+  </div>
   <div class="meta" id="printBalanceMeta"></div>
   <table class="balance-table">
     <thead>
@@ -1230,10 +1340,20 @@
     </thead>
     <tbody id="printBalanceBody"></tbody>
   </table>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
 </div>
 
 <div id="printableExpenses">
-  <h1>Futsal — Expenses</h1>
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Expenses Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printExpensesGenerated"></div>
+  </div>
   <div class="meta" id="printExpensesMeta"></div>
   <table class="expense-table">
     <thead>
@@ -1241,10 +1361,22 @@
     </thead>
     <tbody id="printExpensesBody"></tbody>
   </table>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
 </div>
 
 <div id="printableAll">
-  <h1>Futsal — Season Record</h1>
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Full Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printAllGenerated"></div>
+  </div>
+
+  <div class="print-subheader"><span class="print-doc-type">Season Record</span></div>
   <div class="meta" id="printAllRecordMeta"></div>
   <table class="record-table">
     <thead>
@@ -1253,7 +1385,7 @@
     <tbody id="printAllRecordBody"></tbody>
   </table>
 
-  <h1 class="second-title">Futsal — Attendance</h1>
+  <div class="print-subheader"><span class="print-doc-type">Attendance</span></div>
   <div class="meta" id="printAllAttendMeta"></div>
   <div class="cols">
     <div class="col">
@@ -1266,7 +1398,7 @@
     </div>
   </div>
 
-  <h1 class="second-title">Futsal — Balance</h1>
+  <div class="print-subheader"><span class="print-doc-type">Balance</span></div>
   <div class="meta" id="printAllBalanceMeta"></div>
   <table class="balance-table">
     <thead>
@@ -1275,7 +1407,7 @@
     <tbody id="printAllBalanceBody"></tbody>
   </table>
 
-  <h1 class="second-title">Futsal — Expenses</h1>
+  <div class="print-subheader"><span class="print-doc-type">Expenses</span></div>
   <div class="meta" id="printAllExpensesMeta"></div>
   <table class="expense-table">
     <thead>
@@ -1283,6 +1415,7 @@
     </thead>
     <tbody id="printAllExpensesBody"></tbody>
   </table>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2370,26 +2503,39 @@ function setPrintMode(mode){
   document.body.classList.toggle('print-all', mode === 'all');
 }
 
+function stampGenerated(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const now = new Date();
+  el.innerHTML = '<span class="club">' + matchInfo.venue + '</span>Generated ' +
+    now.toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }) +
+    ', ' + now.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+}
+
 function downloadPDF(){
   setPrintMode('attendance');
+  stampGenerated('printGenerated');
   fillAttendanceMarkup('printMeta', 'printA', 'printB');
   window.print();
 }
 
 function downloadBalancePDF(){
   setPrintMode('balance');
+  stampGenerated('printBalanceGenerated');
   fillBalanceMarkup('printBalanceMeta', 'printBalanceBody');
   window.print();
 }
 
 function downloadExpensesPDF(){
   setPrintMode('expenses');
+  stampGenerated('printExpensesGenerated');
   fillExpensesMarkup('printExpensesMeta', 'printExpensesBody');
   window.print();
 }
 
 function downloadAllPDF(){
   setPrintMode('all');
+  stampGenerated('printAllGenerated');
   fillRecordMarkup('printAllRecordMeta', 'printAllRecordBody');
   fillAttendanceMarkup('printAllAttendMeta', 'printAllA', 'printAllB');
   fillBalanceMarkup('printAllBalanceMeta', 'printAllBalanceBody');

@@ -661,7 +661,7 @@
   #printable, #printableBalance, #printableExpenses, #printableAll{display:none;}
 
   @media print{
-    @page{ margin:16mm 14mm; }
+    @page{ margin:12mm; }
     body::before{display:none;}
     body *{visibility:hidden;}
     body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
@@ -729,8 +729,7 @@
       align-items:baseline;
       border-bottom:2px solid #14231a;
       padding-bottom:6px;
-      margin:26px 0 14px;
-      page-break-before:always;
+      margin:16px 0 10px;
     }
     .print-subheader .print-doc-type{margin-top:0;font-size:15px;letter-spacing:0.4px;color:#14231a;font-family:'Bebas Neue',sans-serif;font-weight:400;text-transform:none;}
 
@@ -806,6 +805,23 @@
     .expense-table th:nth-child(3), .expense-table td:nth-child(3){width:30%;text-align:left;}
     .expense-table td.amount{font-weight:700;}
     .expense-table .summary-row td{border-top:2px solid #14231a;background:#fbf1dd;font-weight:800;font-size:13px;}
+
+    /* "Download all" combines four sections — keep it tight enough to
+       land on a single page where the content allows, instead of
+       forcing a page break before every section. */
+    #printableAll{padding:14px;}
+    #printableAll .print-header{margin-bottom:8px;padding-bottom:6px;}
+    #printableAll .print-brand-name{font-size:22px;}
+    #printableAll .meta{margin-bottom:8px;padding-bottom:6px;}
+    #printableAll .print-subheader{margin:12px 0 6px;padding-bottom:3px;}
+    #printableAll .print-subheader .print-doc-type{font-size:13px;}
+    #printableAll .col h2{font-size:13px;margin-bottom:3px;padding-bottom:3px;}
+    #printableAll .col li{padding:2px 2px;font-size:11px;}
+    #printableAll table{margin-bottom:0;}
+    #printableAll thead th{padding:5px 6px;font-size:9px;}
+    #printableAll tbody td{padding:4px 6px;font-size:10.5px;}
+    #printableAll .balance-table .summary-row td, #printableAll .expense-table .summary-row td{font-size:11px;padding:5px 6px;}
+    #printableAll .print-footer{margin-top:10px;padding-top:5px;}
 
     .print-footer{
       margin-top:22px;

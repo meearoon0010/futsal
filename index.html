@@ -432,6 +432,7 @@
     transition:border-color .12s ease, color .12s ease;
   }
   .balance-add-btn:hover{border-color:var(--turf-bright);color:var(--turf-bright);}
+  .balance-add-btn.subtract:hover{border-color:var(--red);color:var(--red);}
   .balance-pdf-btn{
     display:inline-block;
     background:none;
@@ -918,6 +919,20 @@
     accent-color:var(--turf-bright);
     cursor:pointer;
   }
+  .forgot-link{
+    display:block;
+    width:100%;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    text-align:center;
+    margin-top:12px;
+    padding:0;
+  }
+  .forgot-link:hover{color:var(--amber);}
   .auth-submit{
     width:100%;
     background:var(--amber);
@@ -1121,6 +1136,7 @@
         <span>Remember me on this device</span>
       </label>
       <button type="submit" class="auth-submit" id="loginBtn">Log in</button>
+      <button type="button" class="forgot-link" onclick="showForgotPassword()">Forgot password?</button>
     </form>
 
     <!-- Sign up form -->
@@ -1145,7 +1161,53 @@
       <button type="submit" class="auth-submit" id="signupBtn">Create account</button>
     </form>
 
+    <!-- Forgot password: request a recovery email -->
+    <form id="forgotForm" style="display:none" onsubmit="handleForgotPassword(event)">
+      <p class="auth-sub">Enter your email and we'll send you a link to reset your password.</p>
+      <div class="auth-field">
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" autocomplete="email" required>
+      </div>
+      <button type="submit" class="auth-submit" id="forgotBtn">Send reset link</button>
+      <button type="button" class="forgot-link" onclick="showLogin()">Back to log in</button>
+    </form>
+
     <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- Reset password: shown when the recovery link from the email opens the app -->
+<div class="auth-wrap" id="resetWrap" style="display:none">
+  <div class="masthead" style="max-width:400px;margin:0 auto 22px;">
+    <div class="wordmark">
+      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      </svg>
+      <h1>FUTSAL</h1>
+    </div>
+    <div class="tagline">Matchday squad list</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" style="cursor:default">Reset password</button>
+    </div>
+    <form id="resetPasswordForm" onsubmit="handleSetNewPassword(event)">
+      <p class="auth-sub">Choose a new password for your account.</p>
+      <div class="auth-field">
+        <label for="newPassword">New password</label>
+        <input type="password" id="newPassword" autocomplete="new-password" required minlength="6">
+      </div>
+      <div class="auth-field">
+        <label for="newPasswordConfirm">Confirm new password</label>
+        <input type="password" id="newPasswordConfirm" autocomplete="new-password" required minlength="6">
+      </div>
+      <button type="submit" class="auth-submit" id="resetBtn">Set new password</button>
+    </form>
+    <div class="auth-msg" id="resetMsg"></div>
   </div>
 </div>
 
@@ -1449,6 +1511,7 @@ function setAuthMsg(msg, type){
 
 function showLogin(){
   document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'none';
   document.getElementById('loginForm').style.display = 'block';
   document.getElementById('tabLogin').classList.add('active');
   document.getElementById('tabSignup').classList.remove('active');
@@ -1456,10 +1519,69 @@ function showLogin(){
 }
 function showSignup(){
   document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'none';
   document.getElementById('signupForm').style.display = 'block';
   document.getElementById('tabSignup').classList.add('active');
   document.getElementById('tabLogin').classList.remove('active');
   setAuthMsg('');
+}
+function showForgotPassword(){
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'block';
+  document.getElementById('tabLogin').classList.remove('active');
+  document.getElementById('tabSignup').classList.remove('active');
+  const forgotEmail = document.getElementById('forgotEmail');
+  const loginEmail = document.getElementById('loginEmail');
+  if(loginEmail.value) forgotEmail.value = loginEmail.value;
+  setAuthMsg('');
+}
+
+async function handleForgotPassword(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('forgotEmail').value.trim();
+  const btn = document.getElementById('forgotBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href.split('#')[0].split('?')[0]
+  });
+  btn.disabled = false; btn.textContent = 'Send reset link';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+  setAuthMsg('Check your email for a link to reset your password.', 'success');
+}
+
+function showResetPasswordScreen(){
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('resetWrap').style.display = 'block';
+}
+
+async function handleSetNewPassword(e){
+  e.preventDefault();
+  const resetMsgEl = document.getElementById('resetMsg');
+  resetMsgEl.textContent = ''; resetMsgEl.className = 'auth-msg';
+  const pw = document.getElementById('newPassword').value;
+  const confirm = document.getElementById('newPasswordConfirm').value;
+  if(pw !== confirm){
+    resetMsgEl.textContent = 'Passwords do not match'; resetMsgEl.className = 'auth-msg error';
+    return;
+  }
+  const btn = document.getElementById('resetBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await sbClient.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = 'Set new password';
+  if(error){
+    resetMsgEl.textContent = error.message; resetMsgEl.className = 'auth-msg error';
+    return;
+  }
+  // Password is set — sign this recovery session out so they log in fresh
+  // with the new password, per the normal flow.
+  await sbClient.auth.signOut();
+  document.getElementById('resetWrap').style.display = 'none';
+  document.getElementById('authWrap').style.display = 'block';
+  showLogin();
+  setAuthMsg('Password updated — please log in.', 'success');
 }
 
 /* ---------- Remember me (stores email + password in this browser only) ---------- */
@@ -1564,6 +1686,7 @@ const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
 
 async function showApp(user){
   document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('resetWrap').style.display = 'none';
   document.getElementById('appWrap').style.display = 'block';
   const email = (user?.email || '').toLowerCase();
   isAdmin = email === ADMIN_EMAIL;
@@ -1595,6 +1718,7 @@ async function showApp(user){
 
 function showAuthScreen(){
   document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('resetWrap').style.display = 'none';
   document.getElementById('authWrap').style.display = 'block';
   document.getElementById('attendModal').style.display = 'none';
   showLogin();
@@ -1610,6 +1734,10 @@ function showAuthScreen(){
 }
 
 sbClient.auth.onAuthStateChange((_event, session) => {
+  if(_event === 'PASSWORD_RECOVERY'){
+    showResetPasswordScreen();
+    return;
+  }
   if(session && session.user){
     showApp(session.user);
   } else {
@@ -2003,6 +2131,17 @@ function addBalance(id){
   setBalance(id, Number(p.balance || 0) + amount);
 }
 
+function subtractBalance(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const input = window.prompt(`Subtract how much from ${p.display_name}'s balance? (Rs.)`, '500');
+  if(input === null) return;
+  const amount = parseFloat(input);
+  if(isNaN(amount)){ setStatus('Enter a valid number'); return; }
+  setBalance(id, Number(p.balance || 0) - amount);
+}
+
 async function setBalanceDate(id, dateStr){
   if(!isAdmin) return;
   const p = players.find(p=>p.id===id);
@@ -2272,6 +2411,13 @@ function render(){
       addBtn.title = 'Add to balance';
       addBtn.onclick = ()=>addBalance(p.id);
       amounts.appendChild(addBtn);
+
+      const subtractBtn = document.createElement('button');
+      subtractBtn.className = 'balance-add-btn subtract';
+      subtractBtn.textContent = '− Subtract';
+      subtractBtn.title = 'Deduct from balance';
+      subtractBtn.onclick = ()=>subtractBalance(p.id);
+      amounts.appendChild(subtractBtn);
 
       const renewBtn = document.createElement('button');
       renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');

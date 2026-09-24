@@ -903,6 +903,24 @@
     outline:none;
   }
   .auth-field input:focus{border-color:var(--turf-bright);}
+  .password-field{position:relative;}
+  .password-field input{padding-right:40px;}
+  .password-toggle{
+    position:absolute;
+    right:4px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    padding:6px;
+    cursor:pointer;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .password-toggle:hover{color:var(--chalk);}
+  .password-toggle svg{width:18px;height:18px;display:block;}
   .remember-me{
     display:flex;
     align-items:center;
@@ -1129,7 +1147,10 @@
       </div>
       <div class="auth-field">
         <label for="loginPassword">Password</label>
-        <input type="password" id="loginPassword" autocomplete="current-password" required>
+        <div class="password-field">
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <label class="remember-me">
         <input type="checkbox" id="rememberMe">
@@ -1152,11 +1173,17 @@
       </div>
       <div class="auth-field">
         <label for="signupPassword">Password</label>
-        <input type="password" id="signupPassword" autocomplete="new-password" required minlength="6">
+        <div class="password-field">
+          <input type="password" id="signupPassword" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <div class="auth-field">
         <label for="signupConfirmPassword">Confirm password</label>
-        <input type="password" id="signupConfirmPassword" autocomplete="new-password" required minlength="6">
+        <div class="password-field">
+          <input type="password" id="signupConfirmPassword" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('signupConfirmPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <button type="submit" class="auth-submit" id="signupBtn">Create account</button>
     </form>
@@ -1199,11 +1226,17 @@
       <p class="auth-sub">Choose a new password for your account.</p>
       <div class="auth-field">
         <label for="newPassword">New password</label>
-        <input type="password" id="newPassword" autocomplete="new-password" required minlength="6">
+        <div class="password-field">
+          <input type="password" id="newPassword" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <div class="auth-field">
         <label for="newPasswordConfirm">Confirm new password</label>
-        <input type="password" id="newPasswordConfirm" autocomplete="new-password" required minlength="6">
+        <div class="password-field">
+          <input type="password" id="newPasswordConfirm" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <button type="submit" class="auth-submit" id="resetBtn">Set new password</button>
     </form>
@@ -1502,6 +1535,18 @@
 const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.6 21.6 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+
+function togglePasswordVisibility(id, btn){
+  const input = document.getElementById(id);
+  if(!input) return;
+  const nowShowing = input.type === 'password';
+  input.type = nowShowing ? 'text' : 'password';
+  btn.innerHTML = nowShowing ? EYE_OFF_ICON : EYE_ICON;
+  btn.setAttribute('aria-label', nowShowing ? 'Hide password' : 'Show password');
+}
 
 function setAuthMsg(msg, type){
   const el = document.getElementById('authMsg');

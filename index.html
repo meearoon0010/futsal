@@ -207,13 +207,18 @@
     background:var(--turf-bright);
     color:#08130c;
     border:none;
-    padding:0 22px;
+    border-right:1px solid rgba(0,0,0,0.15);
+    padding:0 18px;
     font-weight:700;
-    font-size:14px;
+    font-size:13px;
     cursor:pointer;
     transition:background .12s ease;
+    white-space:nowrap;
   }
+  .add-row button:last-child{border-right:none;}
   .add-row button:hover{background:var(--amber);}
+  .add-row button.subtract{background:var(--red);color:var(--chalk);}
+  .add-row button.subtract:hover{background:var(--red-deep);}
 
   /* ---------- Roster ---------- */
   .section-title{
@@ -1357,6 +1362,11 @@
     <span class="section-toggle" id="balanceToggle">▾</span>
   </div>
   <div class="section-body" id="balanceBody">
+    <div class="add-row admin-only">
+      <input type="number" id="bulkBalanceAmount" placeholder="Amount for everyone (Rs.)" min="0" step="0.01">
+      <button id="bulkAddBtn" onclick="bulkAdjustBalance('add')">+ Add all</button>
+      <button id="bulkSubtractBtn" class="subtract" onclick="bulkAdjustBalance('subtract')">− Subtract all</button>
+    </div>
     <div class="balance-list" id="balanceList"></div>
     <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
   </div>
@@ -2105,10 +2115,11 @@ function todayStr(){
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-async function setBalance(id, newBalance, dateOverride){
-  if(!isAdmin) return;
-  const p = players.find(p=>p.id===id);
-  if(!p) return;
+/* Core balance-change logic shared by single-player edits and the
+   bulk add/subtract-for-everyone controls. Does the DB write and the
+   transaction-log insert, but leaves rendering/status messages to the
+   caller so a bulk loop doesn't spam re-renders and status text. */
+async function applyBalanceChange(p, newBalance, dateOverride){
   const oldBalance = Number(p.balance || 0);
   const val = Math.round(newBalance * 100) / 100;
   const delta = Math.round((val - oldBalance) * 100) / 100;
@@ -2126,31 +2137,75 @@ async function setBalance(id, newBalance, dateOverride){
   p.balance_updated_at = dateStr;
   p.payment_reminder = belowThreshold;
   p.payment_reminder_at = reminderAt;
-  render();
 
   const { error } = await sbClient.from('players')
     .update({ balance: val, balance_updated_at: dateStr, payment_reminder: belowThreshold, payment_reminder_at: reminderAt })
-    .eq('id', id);
-  if(error){
-    setStatus('Could not save balance — try again');
-    return;
-  }
+    .eq('id', p.id);
+  if(error) return { error, delta: 0, belowThreshold, wasReminded };
 
   if(delta !== 0){
     const { data: txData, error: txError } = await sbClient.from('balance_transactions')
-      .insert({ player_id: id, amount: delta, resulting_balance: val })
+      .insert({ player_id: p.id, amount: delta, resulting_balance: val })
       .select()
       .single();
     if(!txError && txData) balanceTransactions.unshift(txData);
   }
-  render();
+  return { error: null, delta, belowThreshold, wasReminded };
+}
 
+async function setBalance(id, newBalance, dateOverride){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const resultPromise = applyBalanceChange(p, newBalance, dateOverride);
+  render(); // reflects the optimistic mutation applyBalanceChange already made synchronously
+  const { error, belowThreshold, wasReminded } = await resultPromise;
+  render();
+  if(error){
+    setStatus('Could not save balance — try again');
+    return;
+  }
   if(belowThreshold){
     setStatus(`Balance updated for ${p.display_name} — below Rs. ${LOW_BALANCE_THRESHOLD}, renew payment flagged`);
   } else {
     setStatus(wasReminded
       ? `Balance updated for ${p.display_name} — renew payment status cleared`
       : `Balance updated for ${p.display_name}`);
+  }
+}
+
+async function bulkAdjustBalance(direction){
+  if(!isAdmin) return;
+  const input = document.getElementById('bulkBalanceAmount');
+  const amount = parseFloat(input.value);
+  if(isNaN(amount) || amount <= 0){ setStatus('Enter a valid amount'); return; }
+  if(players.length === 0){ setStatus('No players to adjust'); return; }
+
+  const verb = direction === 'add' ? 'Add' : 'Subtract';
+  const preposition = direction === 'add' ? 'to' : 'from';
+  const ok = confirm(`${verb} Rs. ${amount} ${preposition} ALL ${players.length} players' balances?`);
+  if(!ok) return;
+
+  const btnId = direction === 'add' ? 'bulkAddBtn' : 'bulkSubtractBtn';
+  const btn = document.getElementById(btnId);
+  if(btn){ btn.disabled = true; }
+
+  let failed = 0;
+  for(const p of players){
+    const oldBalance = Number(p.balance || 0);
+    const newBalance = direction === 'add' ? oldBalance + amount : oldBalance - amount;
+    const { error } = await applyBalanceChange(p, newBalance);
+    if(error) failed++;
+  }
+
+  if(btn){ btn.disabled = false; }
+  input.value = '';
+  render();
+
+  if(failed > 0){
+    setStatus(`${verb === 'Add' ? 'Added' : 'Subtracted'} Rs. ${amount} for ${players.length - failed} of ${players.length} players — ${failed} failed`);
+  } else {
+    setStatus(`${verb === 'Add' ? 'Added' : 'Subtracted'} Rs. ${amount} ${preposition} all ${players.length} players`);
   }
 }
 

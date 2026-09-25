@@ -152,6 +152,43 @@
     max-width:130px;
   }
 
+  /* ---------- Top bar (logged-in app): logo/name left, refresh right ---------- */
+  .top-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:20px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--line);
+  }
+  .top-bar .brand{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+  }
+  .top-bar .wordmark{gap:8px;}
+  .top-bar .crest{width:26px;height:26px;}
+  .top-bar h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:26px;
+    letter-spacing:0.5px;
+    margin:0;
+    line-height:0.85;
+    color:var(--chalk);
+  }
+  .top-bar .tagline{
+    font-size:11px;
+    color:var(--muted);
+    font-weight:500;
+    margin:0;
+    padding-left:34px;
+  }
+  .top-bar .refresh-btn{flex-shrink:0;}
+
+  .next-schedule{margin-top:2px;}
+
   /* ---------- Scoreboard match info (styled as a torn matchday ticket) ---------- */
   .scoreboard{
     background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
@@ -553,6 +590,32 @@
   .expense-summary{border-top:1px solid var(--line);margin-top:2px;padding-top:14px;}
   .expense-summary .expense-venue{color:var(--muted);font-weight:600;}
   .expense-summary .expense-amount{font-size:20px;}
+
+  /* ---------- Goal scorecard (Stats tab) ---------- */
+  .goal-list{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin:14px 0;
+  }
+  .goal-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+  }
+  .goal-row-name{color:var(--chalk);font-weight:600;}
+  .goal-row-count{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:16px;
+    letter-spacing:0.3px;
+    color:var(--amber);
+    margin-left:auto;
+    margin-right:10px;
+  }
 
   /* ---------- Groups (bibs) ---------- */
   .groups-wrap{margin-bottom:30px;}
@@ -1384,42 +1447,29 @@
 
 <div class="app" id="appWrap" style="display:none">
 
-  <div class="user-bar">
+  <div class="top-bar">
+    <div class="brand">
+      <div class="wordmark">
+        <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+          <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+          <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+          <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+                stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+        </svg>
+        <h1>FUTSAL</h1>
+      </div>
+      <div class="tagline">Matchday squad list</div>
+    </div>
     <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
-  </div>
-
-  <div class="masthead">
-    <div class="wordmark">
-      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
-        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
-        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
-        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
-              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-      </svg>
-      <h1>FUTSAL</h1>
-    </div>
-    <div class="tagline">Matchday squad list</div>
-  </div>
-
-  <div class="scoreboard">
-    <span class="edit-hint admin-only">tap to edit</span>
-    <div class="scoreboard-grid">
-      <div>
-        <span class="field-label">Venue</span>
-        <div class="field-value" id="venueDisplay" onclick="startEdit('venue')"></div>
-        <input type="text" id="venueInput" style="display:none" onblur="finishEdit('venue')" onkeydown="if(event.key==='Enter')this.blur()">
-      </div>
-      <div>
-        <span class="field-label">Date &amp; Kick-off</span>
-        <div class="field-value" id="timeDisplay" onclick="startEdit('time')"></div>
-        <input type="text" id="timeInput" style="display:none" placeholder="e.g. Fri 12 Sep, 7:00 PM" onblur="finishEdit('time')" onkeydown="if(event.key==='Enter')this.blur()">
-      </div>
-    </div>
   </div>
 
   <nav class="tab-bar" id="tabBar" aria-label="Main">
     <div class="tab-bar-inner">
-      <button class="tab-btn active" data-tab="roster" onclick="switchTab('roster')">
+      <button class="tab-btn active" data-tab="home" onclick="switchTab('home')">
+        <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7v9a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-9Z"/><path d="M9.5 20.5v-6.8h5v6.8"/></svg></span>
+        <span class="tab-label">Home</span>
+      </button>
+      <button class="tab-btn" data-tab="roster" onclick="switchTab('roster')">
         <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
         <span class="tab-label">Roster</span>
       </button>
@@ -1446,7 +1496,46 @@
     </div>
   </nav>
 
-  <div class="tab-page active" data-tab-page="roster" id="tabPage-roster">
+  <div class="tab-page active" data-tab-page="home" id="tabPage-home">
+    <div class="scoreboard">
+      <span class="edit-hint admin-only">tap to edit</span>
+      <div class="scoreboard-grid">
+        <div>
+          <span class="field-label">Venue</span>
+          <div class="field-value" id="venueDisplay" onclick="startEdit('venue')"></div>
+          <input type="text" id="venueInput" style="display:none" onblur="finishEdit('venue')" onkeydown="if(event.key==='Enter')this.blur()">
+        </div>
+        <div>
+          <span class="field-label">Date &amp; Kick-off</span>
+          <div class="field-value" id="timeDisplay" onclick="startEdit('time')"></div>
+          <input type="text" id="timeInput" style="display:none" placeholder="e.g. Fri 12 Sep, 7:00 PM" onblur="finishEdit('time')" onkeydown="if(event.key==='Enter')this.blur()">
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title" style="cursor:default;margin-top:22px;">
+      <span>Next Schedule</span>
+    </div>
+    <div class="section-body">
+      <div class="scoreboard next-schedule">
+        <span class="edit-hint admin-only">tap to edit</span>
+        <div class="scoreboard-grid">
+          <div>
+            <span class="field-label">Venue</span>
+            <div class="field-value" id="nextVenueDisplay" onclick="startEdit('nextVenue')"></div>
+            <input type="text" id="nextVenueInput" style="display:none" placeholder="Next match venue" onblur="finishEdit('nextVenue')" onkeydown="if(event.key==='Enter')this.blur()">
+          </div>
+          <div>
+            <span class="field-label">Date &amp; Kick-off</span>
+            <div class="field-value" id="nextTimeDisplay" onclick="startEdit('nextTime')"></div>
+            <input type="text" id="nextTimeInput" style="display:none" placeholder="e.g. Fri 3 Oct, 7:00 PM" onblur="finishEdit('nextTime')" onkeydown="if(event.key==='Enter')this.blur()">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-page" data-tab-page="roster" id="tabPage-roster">
     <div class="add-row admin-only">
       <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
       <select id="newPlayerGroup" title="Assign to a group (optional)">
@@ -1463,7 +1552,6 @@
     </div>
     <div class="section-body" id="rosterBody">
       <div class="roster" id="rosterList"></div>
-      <button class="reset-btn admin-only" style="margin:2px 0 30px" onclick="resetPlayers()">Reset all attendance</button>
     </div>
   </div>
 
@@ -1474,6 +1562,7 @@
         <span class="section-toggle" id="teamsToggle">▾</span>
       </div>
       <div class="section-body" id="teamsBody">
+        <button class="reset-btn admin-only" style="margin:2px 0 14px" onclick="resetPlayers()">Reset all attendance</button>
         <div class="groups-grid">
           <div class="bib A">
             <h3>Group A</h3>
@@ -1511,6 +1600,22 @@
         <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
         <button class="record-reset" onclick="resetRecord()">Reset record</button>
       </div>
+    </div>
+
+    <div class="section-title" style="cursor:default">
+      <span>Goal Scorecard</span>
+    </div>
+    <div class="section-body">
+      <div class="add-row admin-only">
+        <select id="goalPlayerSelect"></select>
+        <input type="number" id="goalCountInput" min="1" step="1" placeholder="Goals" style="flex:0 0 78px">
+        <button onclick="addGoalEntry()">Add</button>
+      </div>
+      <div class="goal-list" id="goalList"></div>
+      <div class="empty-note" id="goalListEmptyNote" style="display:none">No goals logged for this match yet.</div>
+      <button class="auth-submit admin-only" id="submitStatsBtn" style="width:auto;padding:11px 22px;margin-top:4px;" onclick="submitMatchStats()">Submit match result</button>
+      <div class="auth-msg" id="statsSubmitMsg"></div>
+      <span class="note admin-only" style="display:block;margin-top:10px;">Submitting files this match's result and goal scorecard into every grouped player's own record (see their Profile → Status), then clears the scorecard for the next match.</span>
     </div>
   </div>
 
@@ -1611,6 +1716,9 @@
         </button>
         <div class="profile-panel" id="profilePanel-status" style="display:none">
           <div id="profileStatusBlock"></div>
+          <div class="profile-heading" style="font-size:14px;margin:16px 0 8px;">Match history</div>
+          <div class="goal-list" id="profileMatchHistory"></div>
+          <div class="empty-note" id="profileMatchHistoryEmpty" style="display:none">No submitted matches yet.</div>
         </div>
       </div>
 
@@ -1958,10 +2066,11 @@ const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
 let isAdmin = false;
 
 /* ---------- Shared, realtime app state (Supabase) ---------- */
-let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', a_wins: 0, b_wins: 0, draws: 0 };
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_json: [], last_result: null };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
+let matchHistory = []; // rows from public.match_history: {id, player_id, match_date, venue, group_name, result, goals}
 let expandedHistory = new Set(); // player ids whose history is expanded (admin view, in the Balance table)
 const LOW_BALANCE_THRESHOLD = 200;
 let myUserId = null;
@@ -1973,7 +2082,7 @@ let attendPromptDismissed = false;
 
 
 
-const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
+const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time', nextVenue: 'next_venue', nextTime: 'next_kickoff_time' };
 
 async function showApp(user){
   document.getElementById('authWrap').style.display = 'none';
@@ -1996,9 +2105,9 @@ async function showApp(user){
   document.body.classList.toggle('role-admin', isAdmin);
   document.body.classList.toggle('role-viewer', !isAdmin);
 
-  let startTab = 'roster';
-  try{ startTab = localStorage.getItem('futsalActiveTab') || 'roster'; }catch(e){}
-  if(!document.querySelector(`.tab-btn[data-tab="${startTab}"]`)) startTab = 'roster';
+  let startTab = 'home';
+  try{ startTab = localStorage.getItem('futsalActiveTab') || 'home'; }catch(e){}
+  if(!document.querySelector(`.tab-btn[data-tab="${startTab}"]`)) startTab = 'home';
   switchTab(startTab);
 
   // fresh login: allow the "are you playing?" prompt to show again
@@ -2053,16 +2162,18 @@ async function ensureMyPlayerRow(displayName){
 }
 
 async function loadAllData(){
-  const [matchResult, playersResult, expensesResult, txResult] = await Promise.all([
+  const [matchResult, playersResult, expensesResult, txResult, historyResult] = await Promise.all([
     sbClient.from('match_info').select('*').eq('id', 1).single(),
     sbClient.from('players').select('*').order('created_at', { ascending: true }),
     sbClient.from('expenses').select('*').order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
-    sbClient.from('balance_transactions').select('*').order('created_at', { ascending: false })
+    sbClient.from('balance_transactions').select('*').order('created_at', { ascending: false }),
+    sbClient.from('match_history').select('*').order('match_date', { ascending: false }).order('created_at', { ascending: false })
   ]);
   if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
   if(!playersResult.error) players = playersResult.data || [];
   if(!expensesResult.error) expenses = expensesResult.data || [];
   if(!txResult.error) balanceTransactions = txResult.data || [];
+  if(!historyResult.error) matchHistory = historyResult.data || [];
   const mine = players.find(p => p.user_id === myUserId);
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
@@ -2166,6 +2277,7 @@ function subscribeRealtime(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, () => loadAllData())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadAllData())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'balance_transactions' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_history' }, () => loadAllData())
     .subscribe();
 }
 
@@ -2201,7 +2313,7 @@ function startEdit(field){
   if(!isAdmin) return;
   const display = document.getElementById(field+'Display');
   const input = document.getElementById(field+'Input');
-  input.value = field === 'venue' ? matchInfo.venue : matchInfo.kickoff_time;
+  input.value = matchInfo[FIELD_TO_COLUMN[field]] || '';
   display.style.display = 'none';
   input.style.display = 'block';
   input.focus();
@@ -2315,6 +2427,7 @@ async function recordResult(winner){
   if(winner === 'A') updates.a_wins = (matchInfo.a_wins || 0) + 1;
   else if(winner === 'B') updates.b_wins = (matchInfo.b_wins || 0) + 1;
   else updates.draws = (matchInfo.draws || 0) + 1;
+  updates.last_result = winner; // remembers this match's result for the Submit button below
   Object.assign(matchInfo, updates); // optimistic
   render();
   const { error } = await sbClient.from('match_info').update(updates).eq('id', 1);
@@ -2331,6 +2444,129 @@ async function resetRecord(){
     .update({ a_wins: 0, b_wins: 0, draws: 0 })
     .eq('id', 1);
   setStatus(error ? 'Could not reset record' : 'Season record reset');
+}
+
+/* ---------- Goal scorecard: build up this match's scorers before Submit ---------- */
+function renderGoalScorecard(){
+  const select = document.getElementById('goalPlayerSelect');
+  if(select){
+    const eligible = players.filter(p => p.group_name).sort((a,b)=>a.display_name.localeCompare(b.display_name));
+    const prevValue = select.value;
+    select.innerHTML = '<option value="">Select player</option>' +
+      eligible.map(p => `<option value="${p.id}">${escapeHtml(p.display_name)} (Group ${p.group_name})</option>`).join('');
+    if(eligible.some(p => p.id === prevValue)) select.value = prevValue;
+  }
+
+  const goals = Array.isArray(matchInfo.goals_json) ? matchInfo.goals_json : [];
+  const list = document.getElementById('goalList');
+  const emptyNote = document.getElementById('goalListEmptyNote');
+  if(!list || !emptyNote) return;
+  list.innerHTML = '';
+  if(goals.length === 0){
+    emptyNote.style.display = 'block';
+  } else {
+    emptyNote.style.display = 'none';
+    goals.forEach(g => {
+      const p = players.find(pl => pl.id === g.player_id);
+      const row = document.createElement('div');
+      row.className = 'goal-row';
+      const name = document.createElement('span');
+      name.className = 'goal-row-name';
+      name.textContent = p ? p.display_name : 'Unknown player';
+      const count = document.createElement('span');
+      count.className = 'goal-row-count';
+      count.textContent = g.goals + (g.goals === 1 ? ' goal' : ' goals');
+      row.appendChild(name);
+      row.appendChild(count);
+      if(isAdmin){
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'expense-delete';
+        removeBtn.textContent = 'Remove';
+        removeBtn.onclick = () => removeGoalEntry(g.player_id);
+        row.appendChild(removeBtn);
+      }
+      list.appendChild(row);
+    });
+  }
+}
+
+async function addGoalEntry(){
+  if(!isAdmin) return;
+  const select = document.getElementById('goalPlayerSelect');
+  const countInput = document.getElementById('goalCountInput');
+  const playerId = select.value;
+  const count = parseInt(countInput.value, 10);
+  if(!playerId){ setStatus('Pick a player first'); return; }
+  if(isNaN(count) || count <= 0){ setStatus('Enter a valid goal count'); return; }
+
+  const goals = Array.isArray(matchInfo.goals_json) ? [...matchInfo.goals_json] : [];
+  const existing = goals.find(g => g.player_id === playerId);
+  if(existing) existing.goals += count;
+  else goals.push({ player_id: playerId, goals: count });
+
+  matchInfo.goals_json = goals; // optimistic
+  render();
+  countInput.value = '';
+  select.value = '';
+  const { error } = await sbClient.from('match_info').update({ goals_json: goals }).eq('id', 1);
+  setStatus(error ? 'Could not save goal — try again' : 'Goal added');
+}
+
+async function removeGoalEntry(playerId){
+  if(!isAdmin) return;
+  const goals = (matchInfo.goals_json || []).filter(g => g.player_id !== playerId);
+  matchInfo.goals_json = goals; // optimistic
+  render();
+  const { error } = await sbClient.from('match_info').update({ goals_json: goals }).eq('id', 1);
+  setStatus(error ? 'Could not remove entry' : 'Entry removed');
+}
+
+/* Files this match's result + goal scorecard into each grouped player's
+   own record (public.match_history), then clears the scorecard so the
+   next match starts fresh. Season W-L-D totals are untouched — those
+   only change via the record buttons above. */
+async function submitMatchStats(){
+  if(!isAdmin) return;
+  const result = matchInfo.last_result;
+  if(!result){
+    setProfileMsg('statsSubmitMsg', 'Record a result above first (Group A won / Draw / Group B won)', 'error');
+    return;
+  }
+  const grouped = players.filter(p => p.group_name === 'A' || p.group_name === 'B');
+  if(grouped.length === 0){
+    setProfileMsg('statsSubmitMsg', 'No players are placed in a group yet', 'error');
+    return;
+  }
+  const goals = Array.isArray(matchInfo.goals_json) ? matchInfo.goals_json : [];
+  const matchDate = new Date().toISOString().slice(0, 10);
+  const rows = grouped.map(p => {
+    const g = goals.find(x => x.player_id === p.id);
+    const rowResult = result === 'draw' ? 'draw' : (p.group_name === result ? 'win' : 'loss');
+    return {
+      player_id: p.id,
+      match_date: matchDate,
+      venue: matchInfo.venue,
+      group_name: p.group_name,
+      result: rowResult,
+      goals: g ? g.goals : 0
+    };
+  });
+
+  const btn = document.getElementById('submitStatsBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
+  const { error } = await sbClient.from('match_history').insert(rows);
+  if(btn){ btn.disabled = false; btn.textContent = 'Submit match result'; }
+
+  if(error){
+    setProfileMsg('statsSubmitMsg', 'Could not submit — try again', 'error');
+    return;
+  }
+
+  matchInfo.goals_json = [];
+  matchInfo.last_result = null;
+  render();
+  await sbClient.from('match_info').update({ goals_json: [], last_result: null }).eq('id', 1);
+  setProfileMsg('statsSubmitMsg', `Submitted — filed into ${rows.length} player record${rows.length === 1 ? '' : 's'}`, 'success');
 }
 
 /* ---------- Expenses (admin adds/removes; everyone can see them) ---------- */
@@ -2699,6 +2935,32 @@ function renderProfileTab(mine){
     recordLine.appendChild(recordLabel); recordLine.appendChild(recordValue);
     statusBlock.appendChild(recordLine);
   }
+
+  const historyList = document.getElementById('profileMatchHistory');
+  const historyEmpty = document.getElementById('profileMatchHistoryEmpty');
+  if(historyList && historyEmpty){
+    historyList.innerHTML = '';
+    const mine_ = mine ? matchHistory.filter(h => h.player_id === mine.id) : [];
+    if(mine_.length === 0){
+      historyEmpty.style.display = 'block';
+    } else {
+      historyEmpty.style.display = 'none';
+      mine_.forEach(h => {
+        const row = document.createElement('div');
+        row.className = 'goal-row';
+        const info = document.createElement('span');
+        info.className = 'goal-row-name';
+        info.textContent = `${h.match_date} — ${h.venue || 'Unknown venue'} (Group ${h.group_name})`;
+        const resultBadge = document.createElement('span');
+        resultBadge.className = 'goal-row-count';
+        const resultLabel = h.result === 'win' ? 'Won' : h.result === 'loss' ? 'Lost' : 'Draw';
+        resultBadge.textContent = `${resultLabel} · ${h.goals || 0} goal${h.goals === 1 ? '' : 's'}`;
+        row.appendChild(info);
+        row.appendChild(resultBadge);
+        historyList.appendChild(row);
+      });
+    }
+  }
 }
 
 async function toggleRenewReminder(id){
@@ -2723,12 +2985,15 @@ function render(){
 
   document.getElementById('venueDisplay').textContent = matchInfo.venue;
   document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
+  document.getElementById('nextVenueDisplay').textContent = matchInfo.next_venue || 'Not set yet';
+  document.getElementById('nextTimeDisplay').textContent = matchInfo.next_kickoff_time || 'Not set yet';
 
   const aWins = matchInfo.a_wins || 0;
   const bWins = matchInfo.b_wins || 0;
   const draws = matchInfo.draws || 0;
   document.getElementById('recordAScore').textContent = `${aWins}W – ${bWins}L – ${draws}D`;
   document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
+  renderGoalScorecard();
 
   const mine = players.find(p => p.id === myPlayerId);
   renderProfileTab(mine);

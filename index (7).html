@@ -1,0 +1,3049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Futsal — Attendance</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg-night:#0f2b19;
+    --bg-panel:#1a4527;
+    --bg-panel-2:#123419;
+    --turf:#2f8f47;
+    --turf-bright:#4ecb63;
+    --chalk:#f2f5ee;
+    --amber:#f0a531;
+    --amber-deep:#c97d1e;
+    --muted:#9fc2a8;
+    --line:#2f5c3a;
+    --red:#c1443c;
+    --red-deep:#8f2f29;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    padding:0;
+    background-color:var(--bg-night);
+  }
+
+  body{
+    color:var(--chalk);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+    min-height:100vh;
+  }
+
+  /* A single, quiet nod to the pitch: a halfway line and center circle,
+     fixed behind everything, low-contrast enough to read as atmosphere
+     rather than decoration. */
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    background:
+      repeating-linear-gradient(100deg, rgba(255,255,255,0.028) 0 60px, rgba(0,0,0,0.05) 60px 120px),
+      radial-gradient(circle at 50% 190px, transparent 96px, rgba(242,245,238,0.08) 97px, rgba(242,245,238,0.08) 99px, transparent 100px),
+      linear-gradient(rgba(242,245,238,0.08), rgba(242,245,238,0.08)) center 190px / 100% 1px no-repeat,
+      radial-gradient(ellipse 70% 45% at 50% -4%, rgba(78,203,99,0.16), transparent 65%),
+      radial-gradient(ellipse 60% 40% at 8% -6%, rgba(240,165,49,0.09), transparent 60%);
+  }
+
+  a{color:inherit;}
+
+  ::selection{background:var(--amber);color:#221200;}
+
+  :focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  /* Anything marked admin-only is hidden from everyone else */
+  body.role-viewer .admin-only{display:none !important;}
+
+  .app{
+    max-width:640px;
+    margin:0 auto;
+    padding:28px 18px 60px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---------- Header ---------- */
+  .masthead{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:24px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--line);
+  }
+  .wordmark{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .crest{
+    width:34px;
+    height:34px;
+    flex-shrink:0;
+  }
+  .masthead h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:40px;
+    letter-spacing:0.5px;
+    margin:0;
+    line-height:0.85;
+    color:var(--chalk);
+  }
+  .masthead .tagline{
+    font-size:13px;
+    color:var(--muted);
+    font-weight:500;
+    margin:0 0 3px;
+    text-align:right;
+    max-width:130px;
+  }
+
+  /* ---------- Scoreboard match info (styled as a torn matchday ticket) ---------- */
+  .scoreboard{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-bottom:2px dashed var(--line);
+    padding:20px 20px 18px;
+    margin-bottom:24px;
+    position:relative;
+  }
+  .scoreboard-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .scoreboard-grid > div:first-child{
+    border-right:1px dashed var(--line);
+    padding-right:18px;
+    margin-right:18px;
+  }
+  .field-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    color:var(--muted);
+    font-weight:700;
+    margin-bottom:7px;
+    display:block;
+  }
+  .field-value{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:23px;
+    color:var(--amber);
+    letter-spacing:0.3px;
+    cursor:text;
+    border-bottom:1px dashed transparent;
+    word-break:break-word;
+  }
+  .field-value:hover{border-bottom-color:var(--muted);}
+  .scoreboard input{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:2px solid var(--amber);
+    color:var(--amber);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:23px;
+    letter-spacing:0.3px;
+    padding:2px 0;
+    outline:none;
+  }
+  .edit-hint{
+    position:absolute;
+    top:14px;
+    right:16px;
+    font-size:11px;
+    color:var(--muted);
+    font-style:italic;
+  }
+
+  /* ---------- Add player ---------- */
+  .add-row{
+    display:flex;
+    margin-bottom:22px;
+    border:1px solid var(--line);
+  }
+  .add-row input{
+    flex:1;
+    min-width:0;
+    background:var(--bg-panel);
+    border:none;
+    border-right:1px solid var(--line);
+    color:var(--chalk);
+    padding:12px 14px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .add-row input:focus{background:var(--bg-panel-2);}
+  .add-row select{
+    background:var(--bg-panel);
+    border:none;
+    border-right:1px solid var(--line);
+    color:var(--chalk);
+    padding:0 10px;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .add-row button{
+    background:var(--turf-bright);
+    color:#08130c;
+    border:none;
+    border-right:1px solid rgba(0,0,0,0.15);
+    padding:0 18px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    transition:background .12s ease;
+    white-space:nowrap;
+  }
+  .add-row button:last-child{border-right:none;}
+  .add-row button:hover{background:var(--amber);}
+  .add-row button.subtract{background:var(--red);color:var(--chalk);}
+  .add-row button.subtract:hover{background:var(--red-deep);}
+
+  /* ---------- Roster ---------- */
+  .section-title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:19px;
+    letter-spacing:0.5px;
+    color:var(--chalk);
+    margin:0 0 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    cursor:pointer;
+    user-select:none;
+  }
+  .section-title .count{
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .section-toggle{
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    color:var(--muted);
+    flex-shrink:0;
+  }
+  .section-title:hover .section-toggle{color:var(--amber);}
+
+  .roster{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin-bottom:14px;
+  }
+  .player-row{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .squad-num{
+    flex-shrink:0;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .player-name{
+    flex:1;
+    font-size:15px;
+    font-weight:600;
+    color:var(--chalk);
+  }
+  .group-tag{
+    font-size:11px;
+    font-weight:800;
+    padding:3px 8px;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    user-select:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    min-width:20px;
+    text-align:center;
+  }
+  .group-tag.A{border-color:var(--amber);color:var(--amber);}
+  .group-tag.B{border-color:var(--turf-bright);color:var(--turf-bright);}
+
+  .toggle-pair{
+    display:flex;
+    border:1px solid var(--line);
+  }
+  .toggle-btn{
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    padding:7px 13px;
+    cursor:pointer;
+    transition:background .1s ease, color .1s ease;
+  }
+  .toggle-btn.yes{border-right:1px solid var(--line);}
+  .toggle-btn.yes.active{background:var(--turf-bright);color:#08130c;}
+  .toggle-btn.no.active{background:var(--red);color:#1c0a08;}
+  .toggle-btn:disabled{cursor:default;opacity:0.55;}
+  .toggle-btn:not(:disabled):hover{color:var(--chalk);}
+
+  .remove-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:16px;
+    cursor:pointer;
+    padding:2px 4px;
+    line-height:1;
+  }
+  .remove-btn:hover{color:var(--red);}
+
+  .empty-note{
+    color:var(--muted);
+    font-size:13px;
+    padding:16px 0;
+    font-style:italic;
+  }
+
+  /* ---------- Balance ---------- */
+  .balance-list{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin-bottom:14px;
+  }
+  .balance-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    padding:12px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .balance-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .balance-name{
+    font-size:15px;
+    font-weight:600;
+    color:var(--chalk);
+  }
+  .balance-date{
+    font-size:11px;
+    color:var(--muted);
+  }
+  .balance-date.editable{cursor:pointer;border-bottom:1px dashed transparent;}
+  .balance-date.editable:hover{border-bottom-color:var(--muted);color:var(--chalk);}
+  .balance-amounts{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .balance-amount-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .balance-amount{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:18px;
+    letter-spacing:0.3px;
+    color:var(--turf-bright);
+  }
+  .balance-amount.low{color:var(--red);}
+  .balance-amount.editable{cursor:pointer;border-bottom:1px dashed transparent;}
+  .balance-amount.editable:hover{border-bottom-color:var(--muted);}
+  .renew-tag{
+    font-size:11px;
+    font-weight:700;
+    color:var(--red);
+    border:1px solid var(--red);
+    padding:3px 8px;
+    white-space:nowrap;
+  }
+  .balance-summary{border-top:1px solid var(--line);margin-top:2px;padding-top:14px;}
+  .balance-summary .balance-name{color:var(--muted);font-weight:600;}
+  .balance-summary .balance-amount{font-size:20px;color:var(--amber);}
+  .history-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:8px;
+    padding-top:8px;
+    border-top:1px dashed var(--line);
+  }
+  .history-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+  }
+  .history-amount{font-weight:700;min-width:70px;}
+  .history-amount.pos{color:var(--turf-bright);}
+  .history-amount.neg{color:var(--red);}
+  .history-resulting{color:var(--muted);flex:1;}
+  .history-date{color:var(--muted);font-size:11px;white-space:nowrap;}
+  .history-delete{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:13px;
+    cursor:pointer;
+    padding:0 0 0 4px;
+    line-height:1;
+  }
+  .history-delete:hover{color:var(--red);}
+  .balance-add-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    font-weight:700;
+    padding:6px 9px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .balance-add-btn:hover{border-color:var(--turf-bright);color:var(--turf-bright);}
+  .balance-add-btn.subtract:hover{border-color:var(--red);color:var(--red);}
+  .balance-pdf-btn{
+    display:inline-block;
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    padding:8px 14px;
+    cursor:pointer;
+    margin:2px 0 30px;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .balance-pdf-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .renew-btn{
+    background:none;
+    border:1px solid var(--amber);
+    color:var(--amber);
+    font-size:11px;
+    font-weight:700;
+    padding:6px 9px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .12s ease, color .12s ease;
+  }
+  .renew-btn:hover{background:var(--amber);color:#221200;}
+  .renew-btn.sent{border-color:var(--line);color:var(--muted);}
+  .renew-btn.sent:hover{background:none;border-color:var(--red);color:var(--red);}
+
+  /* ---------- Expenses ---------- */
+  .expense-list{
+    display:flex;
+    flex-direction:column;
+    border-top:1px solid var(--line);
+    margin-bottom:14px;
+  }
+  .expense-row{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:12px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .expense-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .expense-venue{
+    font-size:15px;
+    font-weight:600;
+    color:var(--chalk);
+  }
+  .expense-amount{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:18px;
+    letter-spacing:0.3px;
+    color:var(--amber);
+  }
+  .expense-meta{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .expense-date{font-size:11px;color:var(--muted);}
+  .expense-delete{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:11px;
+    font-weight:600;
+    cursor:pointer;
+    padding:0;
+  }
+  .expense-delete:hover{color:var(--red);text-decoration:underline;}
+  .expense-summary{border-top:1px solid var(--line);margin-top:2px;padding-top:14px;}
+  .expense-summary .expense-venue{color:var(--muted);font-weight:600;}
+  .expense-summary .expense-amount{font-size:20px;}
+
+  /* ---------- Groups (bibs) ---------- */
+  .groups-wrap{margin-bottom:30px;}
+  .groups-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .bib{
+    border:1px solid var(--line);
+    padding:15px 14px;
+  }
+  .bib.A{border-top:3px solid var(--amber);background:linear-gradient(180deg, rgba(240,165,49,0.07), transparent 40%);}
+  .bib.B{border-top:3px solid var(--turf-bright);background:linear-gradient(180deg, rgba(87,181,101,0.07), transparent 40%);}
+  .bib h3{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:17px;
+    letter-spacing:0.5px;
+    margin:0 0 10px;
+  }
+  .bib.A h3{color:var(--amber);}
+  .bib.B h3{color:var(--turf-bright);}
+  .bib ul{list-style:none;margin:0;padding:0;}
+  .bib li{
+    font-size:14px;
+    padding:7px 0;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .bib li:last-child{border-bottom:none;}
+  .swap-btn{
+    background:none;border:none;color:var(--muted);
+    font-size:11px;cursor:pointer;
+  }
+  .swap-btn:hover{color:var(--chalk);text-decoration:underline;}
+
+  /* ---------- Season record (Group A vs Group B, head to head) ---------- */
+  .record-wrap{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:14px;
+  }
+  .record-card{
+    border:1px solid var(--line);
+    padding:15px 14px;
+    text-align:center;
+  }
+  .record-card.A{border-top:3px solid var(--amber);background:linear-gradient(180deg, rgba(240,165,49,0.07), transparent 40%);}
+  .record-card.B{border-top:3px solid var(--turf-bright);background:linear-gradient(180deg, rgba(87,181,101,0.07), transparent 40%);}
+  .record-card h3{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:15px;
+    letter-spacing:0.5px;
+    margin:0 0 8px;
+    color:var(--muted);
+  }
+  .record-card.A h3{color:var(--amber);}
+  .record-card.B h3{color:var(--turf-bright);}
+  .record-score{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:24px;
+    letter-spacing:0.4px;
+    color:var(--chalk);
+  }
+  .record-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .record-btn{
+    flex:1;
+    min-width:100px;
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    padding:9px 10px;
+    cursor:pointer;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .record-btn.a:hover{border-color:var(--amber);color:var(--amber);}
+  .record-btn.b:hover{border-color:var(--turf-bright);color:var(--turf-bright);}
+  .record-btn.draw:hover{border-color:var(--chalk);color:var(--chalk);}
+  .record-reset{
+    background:none;
+    border:1px solid var(--red);
+    color:var(--red);
+    font-size:12px;
+    font-weight:700;
+    padding:9px 12px;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease;
+  }
+  .record-reset:hover{background:var(--red);color:var(--chalk);}
+
+  /* ---------- Footer actions ---------- */
+  .actions{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    align-items:flex-start;
+    border-top:1px solid var(--line);
+    padding-top:22px;
+  }
+  .download-btn{
+    background:var(--amber);
+    color:#221200;
+    border:none;
+    padding:13px 22px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .12s ease;
+  }
+  .download-btn:hover{background:#ffb745;}
+  .download-btn.secondary{
+    background:none;
+    border:1px solid var(--turf-bright);
+    color:var(--turf-bright);
+  }
+  .download-btn.secondary:hover{background:var(--turf-bright);color:#08130c;}
+  .actions .note{font-size:12px;color:var(--muted);}
+  .reset-btn{
+    background:none;
+    border:1px solid var(--red);
+    color:var(--red);
+    padding:9px 16px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease;
+  }
+  .reset-btn:hover{background:var(--red);color:var(--chalk);}
+
+  .status-msg{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:4px;
+    min-height:14px;
+  }
+
+  /* ---------- Print / PDF view ---------- */
+  #printable, #printableBalance, #printableExpenses, #printableAll{display:none;}
+
+  @media print{
+    @page{ margin:12mm; }
+    body::before{display:none;}
+    body *{visibility:hidden;}
+    body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
+    body.print-balance #printableBalance, body.print-balance #printableBalance *{visibility:visible;}
+    body.print-expenses #printableExpenses, body.print-expenses #printableExpenses *{visibility:visible;}
+    body.print-all #printableAll, body.print-all #printableAll *{visibility:visible;}
+    #printable, #printableBalance, #printableExpenses, #printableAll{
+      display:block;
+      position:absolute;
+      top:0;left:0;
+      width:100%;
+      background:#fff;
+      color:#161f19;
+      padding:20px;
+      font-family:'Inter',sans-serif;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
+    }
+
+    /* Letterhead — crest, brand, document type, and a generated timestamp.
+       Colors and borders here render regardless of the "background
+       graphics" print-dialog setting; only actual background fills
+       (table header/zebra/summary shading further down) depend on it. */
+    .print-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      border-bottom:3px solid #14231a;
+      padding-bottom:10px;
+      margin-bottom:14px;
+    }
+    .print-brand{display:flex;align-items:center;gap:10px;}
+    .print-crest{width:30px;height:30px;flex-shrink:0;}
+    .print-brand-name{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:27px;
+      letter-spacing:0.5px;
+      line-height:1;
+      color:#14231a;
+    }
+    .print-doc-type{
+      font-family:'Inter',sans-serif;
+      font-size:10.5px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:1.3px;
+      color:#a8671f;
+      margin-top:3px;
+    }
+    .print-generated{
+      font-family:'Inter',sans-serif;
+      font-size:10px;
+      color:#767f79;
+      text-align:right;
+      line-height:1.5;
+    }
+    .print-generated .club{
+      display:block;
+      font-weight:700;
+      color:#33403a;
+      font-size:11.5px;
+    }
+    .print-subheader{
+      display:flex;
+      align-items:baseline;
+      border-bottom:2px solid #14231a;
+      padding-bottom:6px;
+      margin:16px 0 10px;
+    }
+    .print-subheader .print-doc-type{margin-top:0;font-size:15px;letter-spacing:0.4px;color:#14231a;font-family:'Bebas Neue',sans-serif;font-weight:400;text-transform:none;}
+
+    #printable .meta, #printableBalance .meta, #printableExpenses .meta, #printableAll .meta{
+      font-size:11.5px;
+      color:#565f59;
+      margin-bottom:16px;
+      padding-bottom:10px;
+      border-bottom:1px solid #ddd;
+    }
+    #printable .cols, #printableAll .cols{display:flex;gap:26px;}
+    #printable .col, #printableAll .col{flex:1;}
+    #printable .col h2, #printableAll .col h2{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:16px;
+      letter-spacing:0.4px;
+      border-bottom:2px solid #14231a;
+      padding-bottom:5px;
+      margin-bottom:6px;
+      color:#14231a;
+    }
+    #printable ol, #printableAll ol{list-style:none;padding-left:0;margin:0;counter-reset:squad;}
+    #printable li, #printableAll li{
+      counter-increment:squad;
+      padding:6px 2px;
+      font-size:13px;
+      border-bottom:1px solid #eee;
+    }
+    #printable li::before, #printableAll li::before{
+      content:counter(squad) '.  ';
+      color:#9aa39d;
+      font-weight:700;
+    }
+
+    #printableBalance table, #printableExpenses table, #printableAll table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      margin-bottom:2px;
+    }
+    #printableBalance thead th, #printableExpenses thead th, #printableAll thead th{
+      text-align:left;
+      font-family:'Inter',sans-serif;
+      font-size:10.5px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:0.6px;
+      color:#fff;
+      background:#14231a;
+      padding:9px 8px;
+      border-bottom:2px solid #14231a;
+    }
+    #printableBalance tbody td, #printableExpenses tbody td, #printableAll tbody td{
+      padding:8px;
+      font-size:12.5px;
+      border-bottom:1px solid #e4e4e4;
+      word-wrap:break-word;
+    }
+    #printableBalance tbody tr:nth-child(even), #printableExpenses tbody tr:nth-child(even), #printableAll tbody tr:nth-child(even){
+      background:#f4f6f4;
+    }
+    .balance-table th:nth-child(1), .balance-table td:nth-child(1){width:38%;}
+    .balance-table th:nth-child(2), .balance-table td:nth-child(2){width:20%;text-align:right;}
+    .balance-table th:nth-child(3), .balance-table td:nth-child(3){width:21%;text-align:left;}
+    .balance-table th:nth-child(4), .balance-table td:nth-child(4){width:21%;text-align:left;}
+    .balance-table td.amount{font-weight:700;}
+    .balance-table td.status{color:#a31d1d;font-weight:700;}
+    .balance-table .summary-row td{border-top:2px solid #14231a;background:#fbf1dd;font-weight:800;font-size:13px;}
+    .record-table th:nth-child(1), .record-table td:nth-child(1){width:50%;}
+    .record-table th:nth-child(2), .record-table td:nth-child(2){width:50%;}
+    .expense-table th:nth-child(1), .expense-table td:nth-child(1){width:40%;}
+    .expense-table th:nth-child(2), .expense-table td:nth-child(2){width:30%;text-align:right;}
+    .expense-table th:nth-child(3), .expense-table td:nth-child(3){width:30%;text-align:left;}
+    .expense-table td.amount{font-weight:700;}
+    .expense-table .summary-row td{border-top:2px solid #14231a;background:#fbf1dd;font-weight:800;font-size:13px;}
+
+    /* "Download all" combines four sections — keep it tight enough to
+       land on a single page where the content allows, instead of
+       forcing a page break before every section. */
+    #printableAll{padding:14px;}
+    #printableAll .print-header{margin-bottom:8px;padding-bottom:6px;}
+    #printableAll .print-brand-name{font-size:22px;}
+    #printableAll .meta{margin-bottom:8px;padding-bottom:6px;}
+    #printableAll .print-subheader{margin:12px 0 6px;padding-bottom:3px;}
+    #printableAll .print-subheader .print-doc-type{font-size:13px;}
+    #printableAll .col h2{font-size:13px;margin-bottom:3px;padding-bottom:3px;}
+    #printableAll .col li{padding:2px 2px;font-size:11px;}
+    #printableAll table{margin-bottom:0;}
+    #printableAll thead th{padding:5px 6px;font-size:9px;}
+    #printableAll tbody td{padding:4px 6px;font-size:10.5px;}
+    #printableAll .balance-table .summary-row td, #printableAll .expense-table .summary-row td{font-size:11px;padding:5px 6px;}
+    #printableAll .print-footer{margin-top:10px;padding-top:5px;}
+
+    .print-footer{
+      margin-top:22px;
+      padding-top:8px;
+      border-top:1px solid #ddd;
+      font-size:9px;
+      color:#9a9a9a;
+      text-align:center;
+    }
+  }
+
+  @media (max-width:420px){
+    .masthead h1{font-size:32px;}
+    .scoreboard-grid{grid-template-columns:1fr;}
+    .scoreboard-grid > div:first-child{
+      border-right:none;
+      border-bottom:1px dashed var(--line);
+      padding-right:0;
+      margin-right:0;
+      padding-bottom:14px;
+      margin-bottom:14px;
+    }
+  }
+
+  /* ---------- Auth ---------- */
+  .auth-wrap{
+    max-width:400px;
+    margin:0 auto;
+    padding:60px 18px;
+    position:relative;
+    z-index:1;
+  }
+  .auth-card{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    padding:8px 24px 24px;
+  }
+  .auth-tabs{
+    display:flex;
+    margin:0 -24px 22px;
+    border-bottom:1px solid var(--line);
+  }
+  .auth-tab{
+    flex:1;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:16px;
+    letter-spacing:0.4px;
+    padding:16px 0 12px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .auth-tab.active{color:var(--chalk);border-bottom-color:var(--amber);}
+  .auth-card .auth-sub{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 18px;
+  }
+  .auth-field{margin-bottom:14px;}
+  .auth-field label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .auth-field input{
+    width:100%;
+    background:var(--bg-night);
+    border:1px solid var(--line);
+    color:var(--chalk);
+    padding:11px 12px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .auth-field input:focus{border-color:var(--turf-bright);}
+  .password-field{position:relative;}
+  .password-field input{padding-right:40px;}
+  .password-toggle{
+    position:absolute;
+    right:4px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    padding:6px;
+    cursor:pointer;
+    color:var(--muted);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .password-toggle:hover{color:var(--chalk);}
+  .password-toggle svg{width:18px;height:18px;display:block;}
+  .remember-me{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:-4px 0 14px;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    user-select:none;
+  }
+  .remember-me input{
+    width:15px;
+    height:15px;
+    accent-color:var(--turf-bright);
+    cursor:pointer;
+  }
+  .forgot-link{
+    display:block;
+    width:100%;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    text-align:center;
+    margin-top:12px;
+    padding:0;
+  }
+  .forgot-link:hover{color:var(--amber);}
+  .auth-submit{
+    width:100%;
+    background:var(--amber);
+    color:#221200;
+    border:none;
+    padding:13px 20px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:6px;
+    transition:background .12s ease;
+  }
+  .auth-submit:hover{background:#ffb745;}
+  .auth-submit:disabled{opacity:0.6;cursor:not-allowed;}
+  .auth-msg{
+    font-size:12px;
+    margin-top:14px;
+    min-height:14px;
+  }
+  .auth-msg.error{color:var(--red);}
+  .auth-msg.success{color:var(--turf-bright);}
+
+  .user-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .who-info{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .user-bar .who{color:var(--chalk);font-weight:600;}
+  .my-balance{font-size:11px;color:var(--turf-bright);font-weight:600;}
+  .my-balance.low{color:var(--red);}
+  .my-history-toggle{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:11px;
+    font-weight:600;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+    margin-left:8px;
+  }
+  .my-history-toggle:hover{color:var(--amber);}
+  .my-history{
+    margin:-10px 0 18px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    background:var(--bg-panel);
+  }
+  .my-history .history-list{border-top:none;margin-top:0;padding-top:0;}
+  .my-history .empty-note{padding:0;}
+  .user-bar-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .refresh-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:14px;
+    line-height:1;
+    padding:6px 9px;
+    cursor:pointer;
+    transition:border-color .12s ease, color .12s ease, transform .3s ease;
+  }
+  .refresh-btn:hover{border-color:var(--turf-bright);color:var(--turf-bright);}
+  .refresh-btn:disabled{opacity:0.5;cursor:default;}
+  .refresh-btn.spinning{animation:refresh-spin .7s linear infinite;}
+  @keyframes refresh-spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .logout-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    cursor:pointer;
+    transition:border-color .12s ease, color .12s ease;
+  }
+  .logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+  /* ---------- Tab navigation ---------- */
+  .tab-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:2px;
+    margin-bottom:24px;
+    border:1px solid var(--line);
+    background:var(--bg-panel-2);
+  }
+  .tab-btn{
+    flex:1 1 auto;
+    min-width:70px;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:15px;
+    letter-spacing:0.4px;
+    padding:12px 8px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:background .12s ease, color .12s ease;
+  }
+  .tab-btn:hover{color:var(--chalk);background:rgba(242,245,238,0.04);}
+  .tab-btn.active{color:var(--amber);border-bottom-color:var(--amber);background:var(--bg-panel);}
+  .tab-page{display:none;}
+  .tab-page.active{display:block;}
+
+  /* ---------- Profile tab ---------- */
+  .profile-block{
+    border-top:1px solid var(--line);
+    padding:18px 0;
+  }
+  .profile-block:first-child{border-top:none;padding-top:0;}
+  .profile-heading{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:17px;
+    letter-spacing:0.4px;
+    margin:0 0 14px;
+    color:var(--chalk);
+  }
+  .profile-block .auth-field input{background:var(--bg-panel-2);}
+  .profile-status-line{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+  }
+  .profile-status-line:last-child{border-bottom:none;}
+  .profile-status-label{color:var(--muted);}
+  .profile-status-value{font-weight:700;color:var(--chalk);}
+
+  .admin-badge{
+    display:inline-block;
+    margin-left:6px;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:0.5px;
+    color:var(--amber);
+    border:1px solid var(--amber);
+    padding:1px 5px;
+    vertical-align:middle;
+  }
+
+  /* ---------- Attendance prompt modal ---------- */
+  .attend-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(6,12,8,0.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .attend-modal-card{
+    background:linear-gradient(180deg,var(--bg-panel),var(--bg-panel-2));
+    border:1px solid var(--line);
+    border-top:3px solid var(--amber);
+    padding:28px 26px 24px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+    animation:modal-pop .22s cubic-bezier(.2,.8,.3,1.15) both;
+  }
+  @keyframes modal-pop{
+    from{opacity:0; transform:scale(0.94) translateY(6px);}
+    to{opacity:1; transform:none;}
+  }
+  .attend-modal-card h2{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:27px;
+    letter-spacing:0.5px;
+    margin:0 0 6px;
+    color:var(--chalk);
+  }
+  .attend-modal-sub{
+    font-size:13px;
+    color:var(--muted);
+    margin:0 0 20px;
+  }
+  .attend-modal-actions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .attend-modal-actions .toggle-btn{
+    flex:1;
+    padding:12px 10px;
+    font-size:13px;
+    border:1px solid var(--line);
+  }
+  .attend-modal-skip{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+  }
+  .attend-modal-skip:hover{color:var(--chalk);}
+
+</style>
+</head>
+<body>
+
+<!-- Auth screen: shown until the user is logged in -->
+<div class="auth-wrap" id="authWrap">
+  <div class="masthead" style="max-width:400px;margin:0 auto 22px;">
+    <div class="wordmark">
+      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      </svg>
+      <h1>FUTSAL</h1>
+    </div>
+    <div class="tagline">Matchday squad list</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="tabLogin" onclick="showLogin()">Log in</button>
+      <button type="button" class="auth-tab" id="tabSignup" onclick="showSignup()">Create account</button>
+    </div>
+
+    <!-- Login form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <p class="auth-sub">Sign in to see the roster.</p>
+      <div class="auth-field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="loginPassword">Password</label>
+        <div class="password-field">
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <label class="remember-me">
+        <input type="checkbox" id="rememberMe">
+        <span>Remember me on this device</span>
+      </label>
+      <button type="submit" class="auth-submit" id="loginBtn">Log in</button>
+      <button type="button" class="forgot-link" onclick="showForgotPassword()">Forgot password?</button>
+    </form>
+
+    <!-- Sign up form -->
+    <form id="signupForm" style="display:none" onsubmit="handleSignup(event)">
+      <p class="auth-sub">Join the squad — one row, one YES or NO.</p>
+      <div class="auth-field">
+        <label for="signupEmail">Email</label>
+        <input type="email" id="signupEmail" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label for="signupDisplayName">Display name</label>
+        <input type="text" id="signupDisplayName" autocomplete="name" required>
+      </div>
+      <div class="auth-field">
+        <label for="signupPassword">Password</label>
+        <div class="password-field">
+          <input type="password" id="signupPassword" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <div class="auth-field">
+        <label for="signupConfirmPassword">Confirm password</label>
+        <div class="password-field">
+          <input type="password" id="signupConfirmPassword" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('signupConfirmPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <button type="submit" class="auth-submit" id="signupBtn">Create account</button>
+    </form>
+
+    <!-- Forgot password: request a recovery email -->
+    <form id="forgotForm" style="display:none" onsubmit="handleForgotPassword(event)">
+      <p class="auth-sub">Enter your email and we'll send you a link to reset your password.</p>
+      <div class="auth-field">
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" autocomplete="email" required>
+      </div>
+      <button type="submit" class="auth-submit" id="forgotBtn">Send reset link</button>
+      <button type="button" class="forgot-link" onclick="showLogin()">Back to log in</button>
+    </form>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- Reset password: shown when the recovery link from the email opens the app -->
+<div class="auth-wrap" id="resetWrap" style="display:none">
+  <div class="masthead" style="max-width:400px;margin:0 auto 22px;">
+    <div class="wordmark">
+      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      </svg>
+      <h1>FUTSAL</h1>
+    </div>
+    <div class="tagline">Matchday squad list</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" style="cursor:default">Reset password</button>
+    </div>
+    <form id="resetPasswordForm" onsubmit="handleSetNewPassword(event)">
+      <p class="auth-sub">Choose a new password for your account.</p>
+      <div class="auth-field">
+        <label for="newPassword">New password</label>
+        <div class="password-field">
+          <input type="password" id="newPassword" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <div class="auth-field">
+        <label for="newPasswordConfirm">Confirm new password</label>
+        <div class="password-field">
+          <input type="password" id="newPasswordConfirm" autocomplete="new-password" required minlength="6">
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('newPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+      <button type="submit" class="auth-submit" id="resetBtn">Set new password</button>
+    </form>
+    <div class="auth-msg" id="resetMsg"></div>
+  </div>
+</div>
+
+<div class="app" id="appWrap" style="display:none">
+
+  <div class="user-bar">
+    <div class="who-info">
+      <span>Signed in as <span class="who" id="whoAmI"></span></span>
+      <span class="my-balance" id="myBalance"></span>
+    </div>
+    <div class="user-bar-actions">
+      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
+      <button class="logout-btn" onclick="handleLogout()">Log out</button>
+    </div>
+  </div>
+
+  <div class="masthead">
+    <div class="wordmark">
+      <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+        <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+        <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+        <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+              stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      </svg>
+      <h1>FUTSAL</h1>
+    </div>
+    <div class="tagline">Matchday squad list</div>
+  </div>
+
+  <div class="scoreboard">
+    <span class="edit-hint admin-only">tap to edit</span>
+    <div class="scoreboard-grid">
+      <div>
+        <span class="field-label">Venue</span>
+        <div class="field-value" id="venueDisplay" onclick="startEdit('venue')"></div>
+        <input type="text" id="venueInput" style="display:none" onblur="finishEdit('venue')" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+      <div>
+        <span class="field-label">Date &amp; Kick-off</span>
+        <div class="field-value" id="timeDisplay" onclick="startEdit('time')"></div>
+        <input type="text" id="timeInput" style="display:none" placeholder="e.g. Fri 12 Sep, 7:00 PM" onblur="finishEdit('time')" onkeydown="if(event.key==='Enter')this.blur()">
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="roster" onclick="switchTab('roster')">Roster</button>
+    <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')">Teams</button>
+    <button class="tab-btn" data-tab="status" onclick="switchTab('status')">Status</button>
+    <button class="tab-btn" data-tab="balance" onclick="switchTab('balance')">Balance</button>
+    <button class="tab-btn" data-tab="expenses" onclick="switchTab('expenses')">Expenses</button>
+    <button class="tab-btn" data-tab="profile" onclick="switchTab('profile')">Profile</button>
+  </div>
+
+  <div class="tab-page active" data-tab-page="roster" id="tabPage-roster">
+    <div class="add-row admin-only">
+      <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
+      <select id="newPlayerGroup" title="Assign to a group (optional)">
+        <option value="">No group yet</option>
+        <option value="A">Group A</option>
+        <option value="B">Group B</option>
+      </select>
+      <button onclick="addPlayer()">Add</button>
+    </div>
+
+    <div class="section-title" onclick="toggleSection('roster')">
+      <span>Roster <span class="count" id="rosterCount"></span></span>
+      <span class="section-toggle" id="rosterToggle">▾</span>
+    </div>
+    <div class="section-body" id="rosterBody">
+      <div class="roster" id="rosterList"></div>
+      <button class="reset-btn admin-only" style="margin:2px 0 30px" onclick="resetPlayers()">Reset all attendance</button>
+    </div>
+  </div>
+
+  <div class="tab-page" data-tab-page="teams" id="tabPage-teams">
+    <div class="groups-wrap" id="groupsWrap" style="display:none">
+      <div class="section-title" onclick="toggleSection('teams')">
+        <span>Teams — Confirmed Players</span>
+        <span class="section-toggle" id="teamsToggle">▾</span>
+      </div>
+      <div class="section-body" id="teamsBody">
+        <div class="groups-grid">
+          <div class="bib A">
+            <h3>Group A</h3>
+            <ul id="groupAList"></ul>
+          </div>
+          <div class="bib B">
+            <h3>Group B</h3>
+            <ul id="groupBList"></ul>
+          </div>
+        </div>
+        <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
+      </div>
+    </div>
+    <div class="empty-note" id="teamsEmptyNote" style="display:none">No one's confirmed for this match yet.</div>
+  </div>
+
+  <div class="tab-page" data-tab-page="status" id="tabPage-status">
+    <div class="section-title" style="cursor:default">
+      <span>Season Record</span>
+    </div>
+    <div class="section-body">
+      <div class="record-wrap">
+        <div class="record-card A">
+          <h3>Group A</h3>
+          <div class="record-score" id="recordAScore">0W – 0L – 0D</div>
+        </div>
+        <div class="record-card B">
+          <h3>Group B</h3>
+          <div class="record-score" id="recordBScore">0W – 0L – 0D</div>
+        </div>
+      </div>
+      <div class="record-actions admin-only" style="margin-bottom:30px">
+        <button class="record-btn a" onclick="recordResult('A')">Group A won</button>
+        <button class="record-btn draw" onclick="recordResult('draw')">Draw</button>
+        <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
+        <button class="record-reset" onclick="resetRecord()">Reset record</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-page" data-tab-page="balance" id="tabPage-balance">
+    <div class="section-title" style="cursor:default">
+      <span>Balance</span>
+    </div>
+    <div class="section-body">
+      <div class="add-row admin-only">
+        <input type="number" id="bulkBalanceAmount" placeholder="Amount for everyone (Rs.)" min="0" step="0.01">
+        <button id="bulkAddBtn" onclick="bulkAdjustBalance('add')">+ Add all</button>
+        <button id="bulkSubtractBtn" class="subtract" onclick="bulkAdjustBalance('subtract')">− Subtract all</button>
+      </div>
+      <div class="balance-list" id="balanceList"></div>
+      <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
+    </div>
+  </div>
+
+  <div class="tab-page" data-tab-page="expenses" id="tabPage-expenses">
+    <div class="section-title" style="cursor:default">
+      <span>Expenses</span>
+    </div>
+    <div class="section-body">
+      <div class="add-row admin-only">
+        <input type="text" id="newExpenseVenue" placeholder="Venue">
+        <input type="number" id="newExpenseAmount" placeholder="Rs." min="0" step="0.01" style="flex:0 0 90px">
+        <button onclick="addExpense()">Add</button>
+      </div>
+      <div class="expense-list" id="expenseList"></div>
+      <button class="balance-pdf-btn" onclick="downloadExpensesPDF()">Download expenses PDF</button>
+    </div>
+  </div>
+
+  <div class="tab-page" data-tab-page="profile" id="tabPage-profile">
+    <div class="section-title" style="cursor:default">
+      <span>Profile</span>
+    </div>
+    <div class="section-body">
+
+      <div class="profile-block">
+        <h3 class="profile-heading">Account</h3>
+        <form id="changeNameForm" onsubmit="handleChangeName(event)">
+          <div class="auth-field">
+            <label for="profileNameInput">Display name</label>
+            <input type="text" id="profileNameInput" required>
+          </div>
+          <button type="submit" class="auth-submit" id="changeNameBtn" style="width:auto;padding:10px 18px;">Save name</button>
+        </form>
+        <div class="auth-msg" id="nameMsg"></div>
+
+        <form id="changePasswordForm" onsubmit="handleChangePassword(event)" style="margin-top:20px;">
+          <div class="auth-field">
+            <label for="profileNewPassword">New password</label>
+            <div class="password-field">
+              <input type="password" id="profileNewPassword" autocomplete="new-password" minlength="6" required>
+              <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="profileNewPasswordConfirm">Confirm new password</label>
+            <div class="password-field">
+              <input type="password" id="profileNewPasswordConfirm" autocomplete="new-password" minlength="6" required>
+              <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <button type="submit" class="auth-submit" id="changePasswordBtn" style="width:auto;padding:10px 18px;">Update password</button>
+        </form>
+        <div class="auth-msg" id="passwordMsg"></div>
+      </div>
+
+      <div class="profile-block">
+        <h3 class="profile-heading">My balance</h3>
+        <div class="balance-top" style="margin-bottom:12px;">
+          <span class="balance-name">Current balance</span>
+          <span class="balance-amount" id="profileBalanceAmount"></span>
+        </div>
+        <div id="profileHistoryList"></div>
+      </div>
+
+      <div class="profile-block">
+        <h3 class="profile-heading">My match status</h3>
+        <div id="profileStatusBlock"></div>
+      </div>
+
+      <div class="profile-block">
+        <h3 class="profile-heading">Reports</h3>
+        <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
+        <span class="note" style="display:block;margin-top:8px;">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
+        <span class="note admin-only" style="display:block;margin-top:4px;">Changes sync live — everyone signed in sees the same roster in real time.</span>
+        <span class="status-msg" id="statusMsg"></span>
+      </div>
+
+      <div class="profile-block">
+        <button class="logout-btn" style="padding:10px 18px;font-size:13px;" onclick="handleLogout()">Log out</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Attendance prompt: shown right after login until the player answers -->
+<div class="attend-modal" id="attendModal" style="display:none">
+  <div class="attend-modal-card">
+    <h2>Are you playing?</h2>
+    <p class="attend-modal-sub" id="attendModalName"></p>
+    <div class="attend-modal-actions">
+      <button class="toggle-btn yes" onclick="answerAttendance('yes')">YES, I'm in</button>
+      <button class="toggle-btn no" onclick="answerAttendance('no')">NO, can't make it</button>
+    </div>
+    <button class="attend-modal-skip" onclick="dismissAttendModal()">Decide later</button>
+  </div>
+</div>
+
+<!-- Renew payment prompt: shown after login when the admin has flagged
+     this player's balance as needing a top-up -->
+<div class="attend-modal" id="renewModal" style="display:none">
+  <div class="attend-modal-card">
+    <h2>Renew payment</h2>
+    <p class="attend-modal-sub">Your balance has run out. Please pay up to keep your spot for the next match.</p>
+    <button class="auth-submit" onclick="dismissRenewPrompt()">Got it</button>
+  </div>
+</div>
+
+<!-- Printable summary, only shown to the print engine -->
+<div id="printable">
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Attendance Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printGenerated"></div>
+  </div>
+  <div class="meta" id="printMeta"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Group A</h2>
+      <ol id="printA"></ol>
+    </div>
+    <div class="col">
+      <h2>Group B</h2>
+      <ol id="printB"></ol>
+    </div>
+  </div>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
+</div>
+
+<div id="printableBalance">
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Balance Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printBalanceGenerated"></div>
+  </div>
+  <div class="meta" id="printBalanceMeta"></div>
+  <table class="balance-table">
+    <thead>
+      <tr><th>Player</th><th>Balance</th><th>Updated</th><th>Status</th></tr>
+    </thead>
+    <tbody id="printBalanceBody"></tbody>
+  </table>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
+</div>
+
+<div id="printableExpenses">
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Expenses Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printExpensesGenerated"></div>
+  </div>
+  <div class="meta" id="printExpensesMeta"></div>
+  <table class="expense-table">
+    <thead>
+      <tr><th>Venue</th><th>Amount</th><th>Date</th></tr>
+    </thead>
+    <tbody id="printExpensesBody"></tbody>
+  </table>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
+</div>
+
+<div id="printableAll">
+  <div class="print-header">
+    <div class="print-brand">
+      <svg class="print-crest" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" fill="none" stroke="#14231a" stroke-width="1.6"/><polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#14231a"/></svg>
+      <div>
+        <div class="print-brand-name">FUTSAL</div>
+        <div class="print-doc-type">Full Report</div>
+      </div>
+    </div>
+    <div class="print-generated" id="printAllGenerated"></div>
+  </div>
+
+  <div class="print-subheader"><span class="print-doc-type">Season Record</span></div>
+  <div class="meta" id="printAllRecordMeta"></div>
+  <table class="record-table">
+    <thead>
+      <tr><th>Group</th><th>Record (W–L–D)</th></tr>
+    </thead>
+    <tbody id="printAllRecordBody"></tbody>
+  </table>
+
+  <div class="print-subheader"><span class="print-doc-type">Attendance</span></div>
+  <div class="meta" id="printAllAttendMeta"></div>
+  <div class="cols">
+    <div class="col">
+      <h2>Group A</h2>
+      <ol id="printAllA"></ol>
+    </div>
+    <div class="col">
+      <h2>Group B</h2>
+      <ol id="printAllB"></ol>
+    </div>
+  </div>
+
+  <div class="print-subheader"><span class="print-doc-type">Balance</span></div>
+  <div class="meta" id="printAllBalanceMeta"></div>
+  <table class="balance-table">
+    <thead>
+      <tr><th>Player</th><th>Balance</th><th>Updated</th><th>Status</th></tr>
+    </thead>
+    <tbody id="printAllBalanceBody"></tbody>
+  </table>
+
+  <div class="print-subheader"><span class="print-doc-type">Expenses</span></div>
+  <div class="meta" id="printAllExpensesMeta"></div>
+  <table class="expense-table">
+    <thead>
+      <tr><th>Venue</th><th>Amount</th><th>Date</th></tr>
+    </thead>
+    <tbody id="printAllExpensesBody"></tbody>
+  </table>
+  <div class="print-footer">Futsal Squad — generated by the team attendance app</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ---------- Supabase auth ---------- */
+const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.6 21.6 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+
+function togglePasswordVisibility(id, btn){
+  const input = document.getElementById(id);
+  if(!input) return;
+  const nowShowing = input.type === 'password';
+  input.type = nowShowing ? 'text' : 'password';
+  btn.innerHTML = nowShowing ? EYE_OFF_ICON : EYE_ICON;
+  btn.setAttribute('aria-label', nowShowing ? 'Hide password' : 'Show password');
+}
+
+function setAuthMsg(msg, type){
+  const el = document.getElementById('authMsg');
+  el.textContent = msg || '';
+  el.className = 'auth-msg' + (type ? ' '+type : '');
+}
+
+function showLogin(){
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('tabLogin').classList.add('active');
+  document.getElementById('tabSignup').classList.remove('active');
+  setAuthMsg('');
+}
+function showSignup(){
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'block';
+  document.getElementById('tabSignup').classList.add('active');
+  document.getElementById('tabLogin').classList.remove('active');
+  setAuthMsg('');
+}
+function showForgotPassword(){
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('signupForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display = 'block';
+  document.getElementById('tabLogin').classList.remove('active');
+  document.getElementById('tabSignup').classList.remove('active');
+  const forgotEmail = document.getElementById('forgotEmail');
+  const loginEmail = document.getElementById('loginEmail');
+  if(loginEmail.value) forgotEmail.value = loginEmail.value;
+  setAuthMsg('');
+}
+
+async function handleForgotPassword(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('forgotEmail').value.trim();
+  const btn = document.getElementById('forgotBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href.split('#')[0].split('?')[0]
+  });
+  btn.disabled = false; btn.textContent = 'Send reset link';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+  setAuthMsg('Check your email for a link to reset your password.', 'success');
+}
+
+function showResetPasswordScreen(){
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('resetWrap').style.display = 'block';
+}
+
+async function handleSetNewPassword(e){
+  e.preventDefault();
+  const resetMsgEl = document.getElementById('resetMsg');
+  resetMsgEl.textContent = ''; resetMsgEl.className = 'auth-msg';
+  const pw = document.getElementById('newPassword').value;
+  const confirm = document.getElementById('newPasswordConfirm').value;
+  if(pw !== confirm){
+    resetMsgEl.textContent = 'Passwords do not match'; resetMsgEl.className = 'auth-msg error';
+    return;
+  }
+  const btn = document.getElementById('resetBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await sbClient.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = 'Set new password';
+  if(error){
+    resetMsgEl.textContent = error.message; resetMsgEl.className = 'auth-msg error';
+    return;
+  }
+  // Password is set — sign this recovery session out so they log in fresh
+  // with the new password, per the normal flow.
+  await sbClient.auth.signOut();
+  document.getElementById('resetWrap').style.display = 'none';
+  document.getElementById('authWrap').style.display = 'block';
+  showLogin();
+  setAuthMsg('Password updated — please log in.', 'success');
+}
+
+/* ---------- Remember me (stores email + password in this browser only) ---------- */
+const REMEMBER_KEY = 'futsalRememberedLogin';
+
+function loadRememberedLogin(){
+  try{
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if(!raw) return;
+    const { email, password } = JSON.parse(raw);
+    document.getElementById('loginEmail').value = email || '';
+    document.getElementById('loginPassword').value = password || '';
+    document.getElementById('rememberMe').checked = true;
+  }catch(e){ /* ignore malformed/blocked storage */ }
+}
+
+function saveRememberedLogin(email, password){
+  try{ localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email, password })); }
+  catch(e){ /* storage unavailable — fail silently, login still works */ }
+}
+
+function clearRememberedLogin(){
+  try{ localStorage.removeItem(REMEMBER_KEY); }catch(e){}
+}
+
+async function handleLogin(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const remember = document.getElementById('rememberMe').checked;
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Logging in…';
+  const { error } = await sbClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Log In';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+  if(remember){ saveRememberedLogin(email, password); } else { clearRememberedLogin(); }
+  // onAuthStateChange handles showing the app
+}
+
+async function handleSignup(e){
+  e.preventDefault();
+  setAuthMsg('');
+  const email = document.getElementById('signupEmail').value.trim();
+  const displayName = document.getElementById('signupDisplayName').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+  if(password !== confirmPassword){
+    setAuthMsg('Passwords do not match.', 'error');
+    return;
+  }
+  if(password.length < 6){
+    setAuthMsg('Password must be at least 6 characters.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('signupBtn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  const { data, error } = await sbClient.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: displayName } }
+  });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if(error){ setAuthMsg(error.message, 'error'); return; }
+
+  if(data.session){
+    // Email confirmation is disabled on this project — user is signed in immediately.
+    return;
+  }
+  setAuthMsg('Account created! Check your email to confirm, then log in.', 'success');
+  document.getElementById('signupForm').reset();
+  showLogin();
+}
+
+async function handleLogout(){
+  await sbClient.auth.signOut();
+}
+
+const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
+let isAdmin = false;
+
+/* ---------- Shared, realtime app state (Supabase) ---------- */
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', a_wins: 0, b_wins: 0, draws: 0 };
+let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
+let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
+let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
+let expandedHistory = new Set(); // player ids whose history is expanded (admin view, in the Balance table)
+let myHistoryExpanded = false; // whether the signed-in user's own history is expanded (in the profile bar)
+const LOW_BALANCE_THRESHOLD = 200;
+let myUserId = null;
+let myPlayerId = null;
+let loaded = false;
+let realtimeChannel = null;
+let prevMineAttend = undefined; // undefined = not checked yet (fresh login)
+let attendPromptDismissed = false;
+
+
+
+const FIELD_TO_COLUMN = { venue: 'venue', time: 'kickoff_time' };
+
+async function showApp(user){
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('resetWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'block';
+  const email = (user?.email || '').toLowerCase();
+  isAdmin = email === ADMIN_EMAIL;
+  myUserId = user.id;
+  const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
+  const whoAmI = document.getElementById('whoAmI');
+  whoAmI.textContent = displayName;
+  const existingBadge = whoAmI.parentElement.querySelector('.admin-badge');
+  if(existingBadge) existingBadge.remove();
+  if(isAdmin){
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge';
+    badge.textContent = 'Admin';
+    whoAmI.after(badge);
+  }
+  document.body.classList.toggle('role-admin', isAdmin);
+  document.body.classList.toggle('role-viewer', !isAdmin);
+
+  let startTab = 'roster';
+  try{ startTab = localStorage.getItem('futsalActiveTab') || 'roster'; }catch(e){}
+  if(!document.querySelector(`.tab-btn[data-tab="${startTab}"]`)) startTab = 'roster';
+  switchTab(startTab);
+
+  // fresh login: allow the "are you playing?" prompt to show again
+  // (the renew-payment popup uses localStorage, not session state, so it
+  // survives a page reload and only shows once per reminder)
+  prevMineAttend = undefined;
+  attendPromptDismissed = false;
+
+  await ensureMyPlayerRow(displayName);
+  await loadAllData();
+  subscribeRealtime();
+}
+
+function showAuthScreen(){
+  document.getElementById('appWrap').style.display = 'none';
+  document.getElementById('resetWrap').style.display = 'none';
+  document.getElementById('authWrap').style.display = 'block';
+  document.getElementById('attendModal').style.display = 'none';
+  showLogin();
+  if(realtimeChannel){ sbClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+  loaded = false;
+  players = [];
+  myPlayerId = null;
+  myUserId = null;
+  prevMineAttend = undefined;
+  attendPromptDismissed = false;
+  expandedHistory.clear();
+  myHistoryExpanded = false;
+}
+
+sbClient.auth.onAuthStateChange((_event, session) => {
+  if(_event === 'PASSWORD_RECOVERY'){
+    showResetPasswordScreen();
+    return;
+  }
+  if(session && session.user){
+    showApp(session.user);
+  } else {
+    showAuthScreen();
+    loadRememberedLogin();
+  }
+});
+
+/* ensure the signed-in user has their own row in the shared roster */
+async function ensureMyPlayerRow(displayName){
+  const { data: existing } = await sbClient.from('players').select('id').eq('user_id', myUserId).maybeSingle();
+  if(existing){ myPlayerId = existing.id; return; }
+  const { data, error } = await sbClient.from('players')
+    .insert({ user_id: myUserId, display_name: displayName, attend: null, group_name: null })
+    .select('id')
+    .single();
+  if(!error && data) myPlayerId = data.id;
+}
+
+async function loadAllData(){
+  const [matchResult, playersResult, expensesResult, txResult] = await Promise.all([
+    sbClient.from('match_info').select('*').eq('id', 1).single(),
+    sbClient.from('players').select('*').order('created_at', { ascending: true }),
+    sbClient.from('expenses').select('*').order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
+    sbClient.from('balance_transactions').select('*').order('created_at', { ascending: false })
+  ]);
+  if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
+  if(!playersResult.error) players = playersResult.data || [];
+  if(!expensesResult.error) expenses = expensesResult.data || [];
+  if(!txResult.error) balanceTransactions = txResult.data || [];
+  const mine = players.find(p => p.user_id === myUserId);
+  myPlayerId = mine ? mine.id : myPlayerId;
+  loaded = true;
+  render();
+  maybeShowAttendPrompt();
+  maybeShowRenewPrompt();
+}
+
+async function manualRefresh(){
+  const btn = document.getElementById('refreshBtn');
+  if(btn){ btn.disabled = true; btn.classList.add('spinning'); }
+  await loadAllData();
+  if(btn){ btn.disabled = false; btn.classList.remove('spinning'); }
+  setStatus('Refreshed');
+}
+
+/* Ask "are you playing?" right after login (or right after admin resets
+   attendance), unless the player already answered or dismissed it. */
+function maybeShowAttendPrompt(){
+  const modal = document.getElementById('attendModal');
+  const mine = players.find(p => p.id === myPlayerId);
+  if(!mine){ modal.style.display = 'none'; return; }
+
+  if(mine.attend !== null){
+    attendPromptDismissed = false; // reset so a future reset can prompt again
+    modal.style.display = 'none';
+    prevMineAttend = mine.attend;
+    return;
+  }
+
+  const isFirstCheck = prevMineAttend === undefined;
+  const justReset = prevMineAttend !== undefined && prevMineAttend !== null;
+  if((isFirstCheck || justReset) && !attendPromptDismissed){
+    document.getElementById('attendModalName').textContent =
+      `Hey ${mine.display_name}, let us know before the roster fills up.`;
+    modal.style.display = 'flex';
+  }
+  prevMineAttend = mine.attend;
+}
+
+async function answerAttendance(val){
+  document.getElementById('attendModal').style.display = 'none';
+  attendPromptDismissed = false;
+  if(myPlayerId) await setAttend(myPlayerId, val);
+  maybeShowRenewPrompt();
+}
+
+function dismissAttendModal(){
+  attendPromptDismissed = true;
+  document.getElementById('attendModal').style.display = 'none';
+  maybeShowRenewPrompt();
+}
+
+/* Show a "renew payment" popup once per reminder — persisted in
+   localStorage (keyed by player id + when the reminder was sent) so a
+   page reload, closing the tab, or "remember me" auto-login does NOT
+   re-trigger it. It only shows again if the admin cancels a reminder and
+   later sends a genuinely new one (a fresh payment_reminder_at). Never
+   shows at the same time as the "are you playing?" prompt. */
+const RENEW_SEEN_PREFIX = 'futsalRenewSeen:';
+
+function renewSeenKey(playerId){ return RENEW_SEEN_PREFIX + playerId; }
+
+function maybeShowRenewPrompt(){
+  const modal = document.getElementById('renewModal');
+  const mine = players.find(p => p.id === myPlayerId);
+  const attendShowing = document.getElementById('attendModal').style.display === 'flex';
+
+  if(!mine || !mine.payment_reminder){
+    modal.style.display = 'none';
+    return;
+  }
+  if(attendShowing) return; // re-checked again once the attend modal closes
+
+  let seenAt = null;
+  try{ seenAt = localStorage.getItem(renewSeenKey(mine.id)); }catch(e){}
+  const currentAt = mine.payment_reminder_at || 'unknown';
+
+  if(seenAt === currentAt){
+    modal.style.display = 'none';
+    return;
+  }
+  modal.style.display = 'flex';
+}
+
+function dismissRenewPrompt(){
+  document.getElementById('renewModal').style.display = 'none';
+  const mine = players.find(p => p.id === myPlayerId);
+  if(mine){
+    try{ localStorage.setItem(renewSeenKey(mine.id), mine.payment_reminder_at || 'unknown'); }catch(e){}
+  }
+  // Intentionally does NOT clear payment_reminder — the "Renew payment"
+  // status stays visible to everyone until the admin cancels it or
+  // updates this player's balance (see setBalance / toggleRenewReminder).
+}
+
+function subscribeRealtime(){
+  if(realtimeChannel) return;
+  realtimeChannel = sbClient.channel('futsal-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'balance_transactions' }, () => loadAllData())
+    .subscribe();
+}
+
+function setStatus(msg){
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
+}
+
+/* ---------- Top-level tab navigation ---------- */
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.tab === name);
+  });
+  document.querySelectorAll('.tab-page').forEach(page=>{
+    page.classList.toggle('active', page.dataset.tabPage === name);
+  });
+  try{ localStorage.setItem('futsalActiveTab', name); }catch(e){}
+}
+
+/* ---------- Collapse / expand each table ---------- */
+function toggleSection(id){
+  const body = document.getElementById(id + 'Body');
+  const toggle = document.getElementById(id + 'Toggle');
+  if(!body) return;
+  const collapsing = body.style.display !== 'none';
+  body.style.display = collapsing ? 'none' : '';
+  if(toggle) toggle.textContent = collapsing ? '▸' : '▾';
+}
+
+/* ---------- Editable match info (admin only) ---------- */
+function startEdit(field){
+  if(!isAdmin) return;
+  const display = document.getElementById(field+'Display');
+  const input = document.getElementById(field+'Input');
+  input.value = field === 'venue' ? matchInfo.venue : matchInfo.kickoff_time;
+  display.style.display = 'none';
+  input.style.display = 'block';
+  input.focus();
+  input.select();
+}
+async function finishEdit(field){
+  const input = document.getElementById(field+'Input');
+  const val = input.value.trim();
+  input.style.display = 'none';
+  document.getElementById(field+'Display').style.display = 'block';
+  if(!isAdmin || !val){ render(); return; }
+  const column = FIELD_TO_COLUMN[field];
+  matchInfo[column] = val; // optimistic
+  render();
+  const { error } = await sbClient.from('match_info').update({ [column]: val }).eq('id', 1);
+  setStatus(error ? 'Could not save — try again' : 'Match info saved');
+}
+
+/* ---------- Players ---------- */
+/* Admin: add guest players, remove anyone.
+   Anyone signed in: mark only their own attendance (group auto-assigned),
+   and move ANY player between Group A / Group B. */
+async function addPlayer(){
+  if(!isAdmin) return;
+  const input = document.getElementById('newPlayerInput');
+  const groupSelect = document.getElementById('newPlayerGroup');
+  const name = input.value.trim();
+  if(!name) return;
+  const chosenGroup = groupSelect.value || null; // '', 'A', or 'B'
+  const { error } = await sbClient.from('players').insert({
+    display_name: name,
+    attend: chosenGroup ? 'yes' : null,
+    group_name: chosenGroup
+  });
+  if(error){
+    console.error('addPlayer failed:', error);
+    setStatus('Could not add player — ' + (error.message || 'unknown error'));
+    return; // keep the typed name so nothing is lost on failure
+  }
+  input.value = '';
+  groupSelect.value = '';
+  setStatus(chosenGroup ? `Added to Group ${chosenGroup}` : 'Player added');
+}
+
+async function setAttend(id, val){
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  if(!isAdmin && id !== myPlayerId) return; // everyone else can only mark themselves
+  const newAttend = (p.attend === val) ? null : val;
+  const patch = { attend: newAttend };
+  if(newAttend !== 'yes') patch.group_name = null;
+
+  // optimistic local update so the UI feels instant
+  p.attend = newAttend;
+  if(newAttend !== 'yes') p.group_name = null;
+  render();
+
+  const { error } = await sbClient.from('players').update(patch).eq('id', id);
+  if(error){ setStatus('Could not save — try again'); return; }
+  if(newAttend === 'yes' && !p.group_name){
+    await autoAssignGroup(id);
+  }
+}
+
+async function autoAssignGroup(id){
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  const countA = yesPlayers.filter(p=>p.group_name==='A').length;
+  const countB = yesPlayers.filter(p=>p.group_name==='B').length;
+  const group = countA <= countB ? 'A' : 'B';
+  const p = players.find(p=>p.id===id);
+  if(p) p.group_name = group;
+  render();
+  await sbClient.from('players').update({ group_name: group }).eq('id', id);
+}
+
+async function removePlayer(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  const label = p ? p.display_name : 'this player';
+  if(!confirm(`Remove ${label} from the roster? This can't be undone.`)) return;
+  const { error } = await sbClient.from('players').delete().eq('id', id);
+  setStatus(error ? 'Could not remove player' : 'Player removed');
+}
+
+async function swapGroup(id){
+  // Any signed-in user can move any player between Group A and Group B.
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const newGroup = p.group_name === 'A' ? 'B' : 'A';
+  p.group_name = newGroup;
+  render();
+  const { error } = await sbClient.from('players').update({ group_name: newGroup }).eq('id', id);
+  if(error) setStatus('Could not move player');
+}
+
+async function resetPlayers(){
+  if(!isAdmin) return;
+  if(!confirm('Reset attendance for every player? Everyone goes back to unmarked with no group. The roster names stay.')) return;
+  players.forEach(p => { p.attend = null; p.group_name = null; });
+  render();
+  const { error } = await sbClient.from('players')
+    .update({ attend: null, group_name: null })
+    .not('id', 'is', null);
+  setStatus(error ? 'Could not reset players' : 'Players reset');
+}
+
+/* ---------- Season record: Group A vs Group B, head to head ---------- */
+async function recordResult(winner){
+  if(!isAdmin) return;
+  const updates = {};
+  if(winner === 'A') updates.a_wins = (matchInfo.a_wins || 0) + 1;
+  else if(winner === 'B') updates.b_wins = (matchInfo.b_wins || 0) + 1;
+  else updates.draws = (matchInfo.draws || 0) + 1;
+  Object.assign(matchInfo, updates); // optimistic
+  render();
+  const { error } = await sbClient.from('match_info').update(updates).eq('id', 1);
+  setStatus(error ? 'Could not save result — try again'
+    : (winner === 'draw' ? 'Draw recorded' : `Recorded a win for Group ${winner}`));
+}
+
+async function resetRecord(){
+  if(!isAdmin) return;
+  if(!confirm('Reset the season record for both groups to 0W – 0L – 0D?')) return;
+  matchInfo.a_wins = 0; matchInfo.b_wins = 0; matchInfo.draws = 0;
+  render();
+  const { error } = await sbClient.from('match_info')
+    .update({ a_wins: 0, b_wins: 0, draws: 0 })
+    .eq('id', 1);
+  setStatus(error ? 'Could not reset record' : 'Season record reset');
+}
+
+/* ---------- Expenses (admin adds/removes; everyone can see them) ---------- */
+async function addExpense(){
+  if(!isAdmin) return;
+  const venueInput = document.getElementById('newExpenseVenue');
+  const amountInput = document.getElementById('newExpenseAmount');
+  const venue = venueInput.value.trim() || matchInfo.venue;
+  const amount = parseFloat(amountInput.value);
+  if(isNaN(amount) || amount <= 0){ setStatus('Enter a valid expense amount'); return; }
+
+  const { data, error } = await sbClient.from('expenses')
+    .insert({ venue, amount: Math.round(amount * 100) / 100 })
+    .select()
+    .single();
+  if(error){ setStatus('Could not add expense — try again'); return; }
+
+  venueInput.value = '';
+  amountInput.value = '';
+  expenses.unshift(data);
+  render();
+  setStatus(`Added a Rs. ${amount} expense for ${venue}`);
+}
+
+async function deleteExpense(id){
+  if(!isAdmin) return;
+  if(!confirm('Remove this expense entry?')) return;
+  expenses = expenses.filter(e => e.id !== id);
+  render();
+  const { error } = await sbClient.from('expenses').delete().eq('id', id);
+  setStatus(error ? 'Could not remove expense — try again' : 'Expense removed');
+}
+
+/* ---------- Balance (admin sets/edits; everyone can see everyone's) ---------- */
+function todayStr(){
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+/* Core balance-change logic shared by single-player edits and the
+   bulk add/subtract-for-everyone controls. Does the DB write and the
+   transaction-log insert, but leaves rendering/status messages to the
+   caller so a bulk loop doesn't spam re-renders and status text. */
+async function applyBalanceChange(p, newBalance, dateOverride){
+  const oldBalance = Number(p.balance || 0);
+  const val = Math.round(newBalance * 100) / 100;
+  const delta = Math.round((val - oldBalance) * 100) / 100;
+  const dateStr = dateOverride || todayStr();
+  const wasReminded = !!p.payment_reminder;
+  const belowThreshold = val < LOW_BALANCE_THRESHOLD;
+  // Re-arm the reminder automatically if still (or newly) below the
+  // threshold, but don't reset its timestamp if it was already flagged —
+  // that would pop the "renew payment" message again for no new reason.
+  const reminderAt = belowThreshold
+    ? (wasReminded && p.payment_reminder_at ? p.payment_reminder_at : new Date().toISOString())
+    : null;
+
+  p.balance = val; // optimistic
+  p.balance_updated_at = dateStr;
+  p.payment_reminder = belowThreshold;
+  p.payment_reminder_at = reminderAt;
+
+  const { error } = await sbClient.from('players')
+    .update({ balance: val, balance_updated_at: dateStr, payment_reminder: belowThreshold, payment_reminder_at: reminderAt })
+    .eq('id', p.id);
+  if(error) return { error, delta: 0, belowThreshold, wasReminded };
+
+  if(delta !== 0){
+    const { data: txData, error: txError } = await sbClient.from('balance_transactions')
+      .insert({ player_id: p.id, amount: delta, resulting_balance: val })
+      .select()
+      .single();
+    if(!txError && txData) balanceTransactions.unshift(txData);
+  }
+  return { error: null, delta, belowThreshold, wasReminded };
+}
+
+async function setBalance(id, newBalance, dateOverride){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const resultPromise = applyBalanceChange(p, newBalance, dateOverride);
+  render(); // reflects the optimistic mutation applyBalanceChange already made synchronously
+  const { error, belowThreshold, wasReminded } = await resultPromise;
+  render();
+  if(error){
+    setStatus('Could not save balance — try again');
+    return;
+  }
+  if(belowThreshold){
+    setStatus(`Balance updated for ${p.display_name} — below Rs. ${LOW_BALANCE_THRESHOLD}, renew payment flagged`);
+  } else {
+    setStatus(wasReminded
+      ? `Balance updated for ${p.display_name} — renew payment status cleared`
+      : `Balance updated for ${p.display_name}`);
+  }
+}
+
+async function bulkAdjustBalance(direction){
+  if(!isAdmin) return;
+  const input = document.getElementById('bulkBalanceAmount');
+  const amount = parseFloat(input.value);
+  if(isNaN(amount) || amount <= 0){ setStatus('Enter a valid amount'); return; }
+  if(players.length === 0){ setStatus('No players to adjust'); return; }
+
+  const verb = direction === 'add' ? 'Add' : 'Subtract';
+  const preposition = direction === 'add' ? 'to' : 'from';
+  const ok = confirm(`${verb} Rs. ${amount} ${preposition} ALL ${players.length} players' balances?`);
+  if(!ok) return;
+
+  const btnId = direction === 'add' ? 'bulkAddBtn' : 'bulkSubtractBtn';
+  const btn = document.getElementById(btnId);
+  if(btn){ btn.disabled = true; }
+
+  let failed = 0;
+  for(const p of players){
+    const oldBalance = Number(p.balance || 0);
+    const newBalance = direction === 'add' ? oldBalance + amount : oldBalance - amount;
+    const { error } = await applyBalanceChange(p, newBalance);
+    if(error) failed++;
+  }
+
+  if(btn){ btn.disabled = false; }
+  input.value = '';
+  render();
+
+  if(failed > 0){
+    setStatus(`${verb === 'Add' ? 'Added' : 'Subtracted'} Rs. ${amount} for ${players.length - failed} of ${players.length} players — ${failed} failed`);
+  } else {
+    setStatus(`${verb === 'Add' ? 'Added' : 'Subtracted'} Rs. ${amount} ${preposition} all ${players.length} players`);
+  }
+}
+
+function editBalance(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const input = window.prompt(`Set balance for ${p.display_name} (Rs.)`, Number(p.balance || 0));
+  if(input === null) return;
+  const val = parseFloat(input);
+  if(isNaN(val)){ setStatus('Enter a valid number'); return; }
+  setBalance(id, val);
+}
+
+function addBalance(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const input = window.prompt(`Add how much to ${p.display_name}'s balance? (Rs.)`, '500');
+  if(input === null) return;
+  const amount = parseFloat(input);
+  if(isNaN(amount)){ setStatus('Enter a valid number'); return; }
+  setBalance(id, Number(p.balance || 0) + amount);
+}
+
+function subtractBalance(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const input = window.prompt(`Subtract how much from ${p.display_name}'s balance? (Rs.)`, '500');
+  if(input === null) return;
+  const amount = parseFloat(input);
+  if(isNaN(amount)){ setStatus('Enter a valid number'); return; }
+  setBalance(id, Number(p.balance || 0) - amount);
+}
+
+async function setBalanceDate(id, dateStr){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  p.balance_updated_at = dateStr; // optimistic
+  render();
+  const { error } = await sbClient.from('players').update({ balance_updated_at: dateStr }).eq('id', id);
+  setStatus(error ? 'Could not save date — try again' : `Balance date updated for ${p.display_name}`);
+}
+
+function editBalanceDate(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const current = p.balance_updated_at || todayStr();
+  const input = window.prompt(`Set the balance date for ${p.display_name} (YYYY-MM-DD) — leave as today's date unless you're backdating a payment`, current);
+  if(input === null) return;
+  const trimmed = input.trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(trimmed) || isNaN(new Date(trimmed + 'T00:00:00').getTime())){
+    setStatus('Enter a date like 2026-09-20');
+    return;
+  }
+  setBalanceDate(id, trimmed);
+}
+
+/* ---------- Balance transaction history ---------- */
+function buildHistoryList(playerId, allowDelete){
+  const txs = balanceTransactions.filter(t => t.player_id === playerId);
+  const wrap = document.createElement('div');
+  wrap.className = 'history-list';
+  if(txs.length === 0){
+    wrap.innerHTML = '<div class="empty-note">No balance changes logged yet.</div>';
+    return wrap;
+  }
+  txs.forEach(t=>{
+    const amt = Number(t.amount || 0);
+    const resBal = Number(t.resulting_balance || 0);
+    const row = document.createElement('div');
+    row.className = 'history-row';
+
+    const amtEl = document.createElement('span');
+    amtEl.className = 'history-amount' + (amt >= 0 ? ' pos' : ' neg');
+    const absAmt = Math.abs(amt);
+    amtEl.textContent = (amt >= 0 ? '+ Rs. ' : '− Rs. ') + (Number.isInteger(absAmt) ? absAmt : absAmt.toFixed(2));
+
+    const resEl = document.createElement('span');
+    resEl.className = 'history-resulting';
+    resEl.textContent = '→ Rs. ' + (Number.isInteger(resBal) ? resBal : resBal.toFixed(2));
+
+    const dateEl = document.createElement('span');
+    dateEl.className = 'history-date';
+    dateEl.textContent = new Date(t.created_at).toLocaleDateString();
+
+    row.appendChild(amtEl);
+    row.appendChild(resEl);
+    row.appendChild(dateEl);
+
+    if(allowDelete && isAdmin){
+      const delBtn = document.createElement('button');
+      delBtn.className = 'history-delete';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Delete this entry (e.g. if it was entered by mistake)';
+      delBtn.onclick = ()=>deleteHistoryEntry(t.id);
+      row.appendChild(delBtn);
+    }
+
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+async function deleteHistoryEntry(id){
+  if(!isAdmin) return;
+  if(!confirm('Delete this balance history entry? This only removes the log entry — it does not change the current balance. This cannot be undone.')) return;
+  balanceTransactions = balanceTransactions.filter(t => t.id !== id);
+  render();
+  const { error } = await sbClient.from('balance_transactions').delete().eq('id', id);
+  setStatus(error ? 'Could not delete entry — try again' : 'History entry deleted');
+}
+
+function toggleBalanceHistory(id){
+  if(!isAdmin) return;
+  if(expandedHistory.has(id)) expandedHistory.delete(id);
+  else expandedHistory.add(id);
+  render();
+}
+
+function toggleMyHistory(){
+  myHistoryExpanded = !myHistoryExpanded;
+  render();
+}
+
+/* ---------- Profile tab: name, password, balance, match status ---------- */
+async function handleChangeName(e){
+  e.preventDefault();
+  const input = document.getElementById('profileNameInput');
+  const btn = document.getElementById('changeNameBtn');
+  const newName = input.value.trim();
+  if(!newName || !myPlayerId) return;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await sbClient.from('players').update({ display_name: newName }).eq('id', myPlayerId);
+  if(!error){
+    await sbClient.auth.updateUser({ data: { display_name: newName } });
+    const p = players.find(p=>p.id===myPlayerId);
+    if(p) p.display_name = newName;
+    if(!isAdmin) document.getElementById('whoAmI').textContent = newName;
+  }
+  btn.disabled = false; btn.textContent = 'Save name';
+  setProfileMsg('nameMsg', error ? 'Could not save — try again' : 'Name updated', error ? 'error' : 'success');
+  render();
+}
+
+async function handleChangePassword(e){
+  e.preventDefault();
+  const pw = document.getElementById('profileNewPassword').value;
+  const confirmPw = document.getElementById('profileNewPasswordConfirm').value;
+  const btn = document.getElementById('changePasswordBtn');
+  if(pw.length < 6){ setProfileMsg('passwordMsg', 'Password must be at least 6 characters', 'error'); return; }
+  if(pw !== confirmPw){ setProfileMsg('passwordMsg', 'Passwords do not match', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Updating…';
+  const { error } = await sbClient.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = 'Update password';
+  if(!error){
+    document.getElementById('changePasswordForm').reset();
+  }
+  setProfileMsg('passwordMsg', error ? (error.message || 'Could not update password') : 'Password updated', error ? 'error' : 'success');
+}
+
+function setProfileMsg(id, msg, type){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-msg' + (type ? ' '+type : '');
+}
+
+function renderProfileTab(mine){
+  const nameInput = document.getElementById('profileNameInput');
+  if(nameInput && document.activeElement !== nameInput){
+    nameInput.value = mine ? mine.display_name : '';
+  }
+
+  const balEl = document.getElementById('profileBalanceAmount');
+  const historyWrap = document.getElementById('profileHistoryList');
+  if(mine){
+    const myBal = Number(mine.balance || 0);
+    balEl.textContent = 'Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
+    balEl.classList.toggle('low', myBal <= 0);
+    historyWrap.innerHTML = '';
+    historyWrap.appendChild(buildHistoryList(mine.id));
+  } else {
+    balEl.textContent = '';
+    historyWrap.innerHTML = '';
+  }
+
+  const statusBlock = document.getElementById('profileStatusBlock');
+  statusBlock.innerHTML = '';
+  const attendLine = document.createElement('div');
+  attendLine.className = 'profile-status-line';
+  const attendLabel = document.createElement('span');
+  attendLabel.className = 'profile-status-label';
+  attendLabel.textContent = 'This match';
+  const attendValue = document.createElement('span');
+  attendValue.className = 'profile-status-value';
+  attendValue.textContent = !mine || mine.attend == null ? 'Not answered yet' : (mine.attend === 'yes' ? "Playing" : "Not playing");
+  attendLine.appendChild(attendLabel); attendLine.appendChild(attendValue);
+  statusBlock.appendChild(attendLine);
+
+  const groupLine = document.createElement('div');
+  groupLine.className = 'profile-status-line';
+  const groupLabel = document.createElement('span');
+  groupLabel.className = 'profile-status-label';
+  groupLabel.textContent = 'Group';
+  const groupValue = document.createElement('span');
+  groupValue.className = 'profile-status-value';
+  groupValue.textContent = mine && mine.group_name ? `Group ${mine.group_name}` : 'Not assigned';
+  groupLine.appendChild(groupLabel); groupLine.appendChild(groupValue);
+  statusBlock.appendChild(groupLine);
+
+  if(mine && mine.group_name){
+    const aWins = matchInfo.a_wins || 0, bWins = matchInfo.b_wins || 0, draws = matchInfo.draws || 0;
+    const mineWins = mine.group_name === 'A' ? aWins : bWins;
+    const mineLosses = mine.group_name === 'A' ? bWins : aWins;
+    const recordLine = document.createElement('div');
+    recordLine.className = 'profile-status-line';
+    const recordLabel = document.createElement('span');
+    recordLabel.className = 'profile-status-label';
+    recordLabel.textContent = "Your group's scorecard";
+    const recordValue = document.createElement('span');
+    recordValue.className = 'profile-status-value';
+    recordValue.textContent = `${mineWins}W – ${mineLosses}L – ${draws}D`;
+    recordLine.appendChild(recordLabel); recordLine.appendChild(recordValue);
+    statusBlock.appendChild(recordLine);
+  }
+}
+
+async function toggleRenewReminder(id){
+  if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  if(!p) return;
+  const newVal = !p.payment_reminder;
+  const newAt = newVal ? new Date().toISOString() : null;
+  p.payment_reminder = newVal; // optimistic
+  p.payment_reminder_at = newAt;
+  render();
+  const { error } = await sbClient.from('players')
+    .update({ payment_reminder: newVal, payment_reminder_at: newAt })
+    .eq('id', id);
+  if(error){ setStatus('Could not update reminder — try again'); return; }
+  setStatus(newVal ? `Renew payment reminder sent to ${p.display_name}` : `Reminder cancelled for ${p.display_name}`);
+}
+
+/* ---------- Render ---------- */
+function render(){
+  if(!loaded) return;
+
+  document.getElementById('venueDisplay').textContent = matchInfo.venue;
+  document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
+
+  const aWins = matchInfo.a_wins || 0;
+  const bWins = matchInfo.b_wins || 0;
+  const draws = matchInfo.draws || 0;
+  document.getElementById('recordAScore').textContent = `${aWins}W – ${bWins}L – ${draws}D`;
+  document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
+
+  const myBalanceEl = document.getElementById('myBalance');
+  const mine = players.find(p => p.id === myPlayerId);
+  if(mine){
+    const myBal = Number(mine.balance || 0);
+    myBalanceEl.textContent = 'Balance: Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
+    myBalanceEl.classList.toggle('low', myBal <= 0);
+  } else {
+    myBalanceEl.textContent = '';
+  }
+  renderProfileTab(mine);
+
+  const rosterList = document.getElementById('rosterList');
+  rosterList.innerHTML = '';
+  document.getElementById('rosterCount').textContent = players.length ? `(${players.length})` : '';
+
+  if(players.length === 0){
+    rosterList.innerHTML = '<div class="empty-note">No players yet.</div>';
+  }
+
+  players.forEach((p, idx)=>{
+    const row = document.createElement('div');
+    row.className = 'player-row';
+
+    const squadNum = document.createElement('span');
+    squadNum.className = 'squad-num';
+    squadNum.textContent = idx + 1;
+
+    const groupTag = document.createElement('span');
+    groupTag.className = 'group-tag' + (p.group_name ? ' '+p.group_name : '');
+    groupTag.textContent = p.group_name || '·';
+    if(p.group_name){
+      groupTag.title = 'Tap to swap group';
+      groupTag.onclick = ()=>swapGroup(p.id);
+    }
+
+    const name = document.createElement('span');
+    name.className = 'player-name';
+    name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+
+    const toggles = document.createElement('div');
+    toggles.className = 'toggle-pair';
+    const canToggle = isAdmin || p.id === myPlayerId;
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'toggle-btn yes' + (p.attend==='yes' ? ' active' : '');
+    yesBtn.textContent = 'YES';
+    if(canToggle) yesBtn.onclick = ()=>setAttend(p.id,'yes'); else yesBtn.disabled = true;
+    const noBtn = document.createElement('button');
+    noBtn.className = 'toggle-btn no' + (p.attend==='no' ? ' active' : '');
+    noBtn.textContent = 'NO';
+    if(canToggle) noBtn.onclick = ()=>setAttend(p.id,'no'); else noBtn.disabled = true;
+    toggles.appendChild(yesBtn);
+    toggles.appendChild(noBtn);
+
+    row.appendChild(squadNum);
+    row.appendChild(groupTag);
+    row.appendChild(name);
+    row.appendChild(toggles);
+
+    if(isAdmin){
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove player';
+      removeBtn.onclick = ()=>removePlayer(p.id);
+      row.appendChild(removeBtn);
+    }
+    rosterList.appendChild(row);
+  });
+
+  // Balance section — everyone can see everyone's balance; only admin
+  // can edit amounts or send a "renew payment" reminder.
+  const balanceList = document.getElementById('balanceList');
+  balanceList.innerHTML = '';
+  if(players.length === 0){
+    balanceList.innerHTML = '<div class="empty-note">No players yet.</div>';
+  }
+  let balanceSum = 0;
+  players.forEach(p=>{
+    const bal = Number(p.balance || 0);
+    balanceSum += bal;
+
+    const row = document.createElement('div');
+    row.className = 'balance-row';
+
+    const top = document.createElement('div');
+    top.className = 'balance-top';
+
+    const name = document.createElement('span');
+    name.className = 'balance-name';
+    name.textContent = p.display_name + (p.id === myPlayerId ? ' (You)' : '');
+    top.appendChild(name);
+
+    const amountGroup = document.createElement('span');
+    amountGroup.className = 'balance-amount-group';
+
+    const amount = document.createElement('span');
+    const reminded = !!p.payment_reminder;
+    amount.className = 'balance-amount' + (bal <= 0 ? ' low' : '') + (isAdmin ? ' editable' : '');
+    amount.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
+    if(isAdmin){
+      amount.title = 'Tap to set balance';
+      amount.onclick = ()=>editBalance(p.id);
+    }
+    amountGroup.appendChild(amount);
+    if(reminded){
+      const tag = document.createElement('span');
+      tag.className = 'renew-tag';
+      tag.textContent = 'Renew payment';
+      amountGroup.appendChild(tag);
+    }
+    top.appendChild(amountGroup);
+    row.appendChild(top);
+
+    const dateStr = p.balance_updated_at;
+    if(dateStr){
+      const dateEl = document.createElement('span');
+      dateEl.className = 'balance-date' + (isAdmin ? ' editable' : '');
+      dateEl.textContent = 'Updated ' + new Date(dateStr + 'T00:00:00').toLocaleDateString();
+      if(isAdmin){
+        dateEl.title = 'Tap to change the date (e.g. to backdate a payment)';
+        dateEl.onclick = ()=>editBalanceDate(p.id);
+      }
+      row.appendChild(dateEl);
+    }
+
+    if(isAdmin){
+      const amounts = document.createElement('div');
+      amounts.className = 'balance-amounts';
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'balance-add-btn';
+      addBtn.textContent = '+ Add';
+      addBtn.title = 'Add to balance';
+      addBtn.onclick = ()=>addBalance(p.id);
+      amounts.appendChild(addBtn);
+
+      const subtractBtn = document.createElement('button');
+      subtractBtn.className = 'balance-add-btn subtract';
+      subtractBtn.textContent = '− Subtract';
+      subtractBtn.title = 'Deduct from balance';
+      subtractBtn.onclick = ()=>subtractBalance(p.id);
+      amounts.appendChild(subtractBtn);
+
+      const renewBtn = document.createElement('button');
+      renewBtn.className = 'renew-btn' + (p.payment_reminder ? ' sent' : '');
+      renewBtn.textContent = p.payment_reminder ? 'Reminder sent' : 'Send renew payment';
+      renewBtn.title = p.payment_reminder ? 'Tap to cancel the reminder' : `Pop a renew-payment message for ${p.display_name} next time they open the app`;
+      renewBtn.onclick = ()=>toggleRenewReminder(p.id);
+      amounts.appendChild(renewBtn);
+
+      const txCount = balanceTransactions.filter(t => t.player_id === p.id).length;
+      const historyBtn = document.createElement('button');
+      historyBtn.className = 'balance-add-btn';
+      historyBtn.textContent = (expandedHistory.has(p.id) ? 'Hide history' : 'History') + (txCount ? ` (${txCount})` : '');
+      historyBtn.onclick = ()=>toggleBalanceHistory(p.id);
+      amounts.appendChild(historyBtn);
+
+      row.appendChild(amounts);
+
+      if(expandedHistory.has(p.id)){
+        row.appendChild(buildHistoryList(p.id, true));
+      }
+    }
+
+    balanceList.appendChild(row);
+  });
+
+  if(players.length > 0){
+    const summaryRow = document.createElement('div');
+    summaryRow.className = 'balance-row balance-summary';
+    const summaryTop = document.createElement('div');
+    summaryTop.className = 'balance-top';
+    const summaryLabel = document.createElement('span');
+    summaryLabel.className = 'balance-name';
+    summaryLabel.textContent = 'Remaining balance (all players)';
+    const summaryValue = document.createElement('span');
+    summaryValue.className = 'balance-amount' + (balanceSum <= 0 ? ' low' : '');
+    summaryValue.textContent = 'Rs. ' + (Number.isInteger(balanceSum) ? balanceSum : balanceSum.toFixed(2));
+    summaryTop.appendChild(summaryLabel);
+    summaryTop.appendChild(summaryValue);
+    summaryRow.appendChild(summaryTop);
+    balanceList.appendChild(summaryRow);
+  }
+
+  // Expenses section — everyone can see what's been spent; only admin
+  // can add or remove entries.
+  const expenseList = document.getElementById('expenseList');
+  expenseList.innerHTML = '';
+  if(expenses.length === 0){
+    expenseList.innerHTML = '<div class="empty-note">No expenses logged yet.</div>';
+  }
+  let expenseSum = 0;
+  expenses.forEach(e=>{
+    const amt = Number(e.amount || 0);
+    expenseSum += amt;
+
+    const row = document.createElement('div');
+    row.className = 'expense-row';
+
+    const top = document.createElement('div');
+    top.className = 'expense-top';
+    const venueEl = document.createElement('span');
+    venueEl.className = 'expense-venue';
+    venueEl.textContent = e.venue;
+    const amountEl = document.createElement('span');
+    amountEl.className = 'expense-amount';
+    amountEl.textContent = 'Rs. ' + (Number.isInteger(amt) ? amt : amt.toFixed(2));
+    top.appendChild(venueEl);
+    top.appendChild(amountEl);
+    row.appendChild(top);
+
+    const meta = document.createElement('div');
+    meta.className = 'expense-meta';
+    const dateEl = document.createElement('span');
+    dateEl.className = 'expense-date';
+    const d = e.spent_on ? new Date(e.spent_on + 'T00:00:00') : new Date(e.created_at);
+    dateEl.textContent = d.toLocaleDateString();
+    meta.appendChild(dateEl);
+    if(isAdmin){
+      const delBtn = document.createElement('button');
+      delBtn.className = 'expense-delete';
+      delBtn.textContent = 'Remove';
+      delBtn.onclick = ()=>deleteExpense(e.id);
+      meta.appendChild(delBtn);
+    }
+    row.appendChild(meta);
+
+    expenseList.appendChild(row);
+  });
+  if(expenses.length > 0){
+    const summaryRow = document.createElement('div');
+    summaryRow.className = 'expense-row expense-summary';
+    const summaryTop = document.createElement('div');
+    summaryTop.className = 'expense-top';
+    const summaryLabel = document.createElement('span');
+    summaryLabel.className = 'expense-venue';
+    summaryLabel.textContent = 'Total spent (all venues)';
+    const summaryValue = document.createElement('span');
+    summaryValue.className = 'expense-amount';
+    summaryValue.textContent = 'Rs. ' + (Number.isInteger(expenseSum) ? expenseSum : expenseSum.toFixed(2));
+    summaryTop.appendChild(summaryLabel);
+    summaryTop.appendChild(summaryValue);
+    summaryRow.appendChild(summaryTop);
+    expenseList.appendChild(summaryRow);
+  }
+
+  // Groups section
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  const groupsWrap = document.getElementById('groupsWrap');
+  const teamsEmptyNote = document.getElementById('teamsEmptyNote');
+  if(yesPlayers.length === 0){
+    groupsWrap.style.display = 'none';
+    if(teamsEmptyNote) teamsEmptyNote.style.display = 'block';
+  } else {
+    groupsWrap.style.display = 'block';
+    if(teamsEmptyNote) teamsEmptyNote.style.display = 'none';
+    const aList = document.getElementById('groupAList');
+    const bList = document.getElementById('groupBList');
+    aList.innerHTML = '';
+    bList.innerHTML = '';
+    yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='move →';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
+      aList.appendChild(li);
+    });
+    yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
+      const swap = document.createElement('button');
+      swap.className='swap-btn'; swap.textContent='← move';
+      swap.onclick = ()=>swapGroup(p.id);
+      li.appendChild(swap);
+      bList.appendChild(li);
+    });
+  }
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+/* ---------- PDF (print) ---------- */
+function fillAttendanceMarkup(metaId, colAId, colBId){
+  const yesPlayers = players.filter(p=>p.attend==='yes');
+  document.getElementById(metaId).textContent =
+    `Venue: ${matchInfo.venue}   •   Date & Kick-off: ${matchInfo.kickoff_time}   •   Confirmed: ${yesPlayers.length} player${yesPlayers.length===1?'':'s'}`;
+  const colA = document.getElementById(colAId);
+  const colB = document.getElementById(colBId);
+  colA.innerHTML = '';
+  colB.innerHTML = '';
+  yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.display_name; colA.appendChild(li);
+  });
+  yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
+    const li = document.createElement('li'); li.textContent = p.display_name; colB.appendChild(li);
+  });
+}
+
+function fillBalanceMarkup(metaId, bodyId){
+  const today = new Date().toLocaleDateString();
+  document.getElementById(metaId).textContent = `As of ${today}   •   ${players.length} player${players.length===1?'':'s'}`;
+  const body = document.getElementById(bodyId);
+  body.innerHTML = '';
+  let sum = 0;
+  players.forEach(p=>{
+    const bal = Number(p.balance || 0);
+    sum += bal;
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td'); nameTd.textContent = p.display_name;
+    const amountTd = document.createElement('td'); amountTd.className = 'amount';
+    amountTd.textContent = 'Rs. ' + (Number.isInteger(bal) ? bal : bal.toFixed(2));
+    const dateTd = document.createElement('td');
+    dateTd.textContent = p.balance_updated_at ? new Date(p.balance_updated_at + 'T00:00:00').toLocaleDateString() : '';
+    const statusTd = document.createElement('td'); statusTd.className = 'status';
+    statusTd.textContent = p.payment_reminder ? 'Renew payment' : '';
+    tr.appendChild(nameTd); tr.appendChild(amountTd); tr.appendChild(dateTd); tr.appendChild(statusTd);
+    body.appendChild(tr);
+  });
+  if(players.length > 0){
+    const sumTr = document.createElement('tr');
+    sumTr.className = 'summary-row';
+    const sumLabelTd = document.createElement('td'); sumLabelTd.textContent = 'Remaining balance (all players)';
+    const sumAmountTd = document.createElement('td'); sumAmountTd.className = 'amount';
+    sumAmountTd.textContent = 'Rs. ' + (Number.isInteger(sum) ? sum : sum.toFixed(2));
+    const sumDateTd = document.createElement('td');
+    const sumStatusTd = document.createElement('td');
+    sumTr.appendChild(sumLabelTd); sumTr.appendChild(sumAmountTd); sumTr.appendChild(sumDateTd); sumTr.appendChild(sumStatusTd);
+    body.appendChild(sumTr);
+  }
+}
+
+function fillRecordMarkup(metaId, bodyId){
+  const today = new Date().toLocaleDateString();
+  const aWins = matchInfo.a_wins || 0;
+  const bWins = matchInfo.b_wins || 0;
+  const draws = matchInfo.draws || 0;
+  document.getElementById(metaId).textContent = `As of ${today}`;
+  const body = document.getElementById(bodyId);
+  body.innerHTML = '';
+  [['Group A', `${aWins}W – ${bWins}L – ${draws}D`], ['Group B', `${bWins}W – ${aWins}L – ${draws}D`]]
+    .forEach(([label, record])=>{
+      const tr = document.createElement('tr');
+      const nameTd = document.createElement('td'); nameTd.textContent = label;
+      const recordTd = document.createElement('td'); recordTd.textContent = record;
+      tr.appendChild(nameTd); tr.appendChild(recordTd);
+      body.appendChild(tr);
+    });
+}
+
+function fillExpensesMarkup(metaId, bodyId){
+  document.getElementById(metaId).textContent =
+    `${expenses.length} entr${expenses.length===1?'y':'ies'}`;
+  const body = document.getElementById(bodyId);
+  body.innerHTML = '';
+  let sum = 0;
+  expenses.forEach(e=>{
+    const amt = Number(e.amount || 0);
+    sum += amt;
+    const d = e.spent_on ? new Date(e.spent_on + 'T00:00:00') : new Date(e.created_at);
+    const tr = document.createElement('tr');
+    const venueTd = document.createElement('td'); venueTd.textContent = e.venue;
+    const amountTd = document.createElement('td'); amountTd.className = 'amount';
+    amountTd.textContent = 'Rs. ' + (Number.isInteger(amt) ? amt : amt.toFixed(2));
+    const dateTd = document.createElement('td'); dateTd.textContent = d.toLocaleDateString();
+    tr.appendChild(venueTd); tr.appendChild(amountTd); tr.appendChild(dateTd);
+    body.appendChild(tr);
+  });
+  if(expenses.length > 0){
+    const sumTr = document.createElement('tr');
+    sumTr.className = 'summary-row';
+    const sumLabelTd = document.createElement('td'); sumLabelTd.textContent = 'Total spent (all venues)';
+    const sumAmountTd = document.createElement('td'); sumAmountTd.className = 'amount';
+    sumAmountTd.textContent = 'Rs. ' + (Number.isInteger(sum) ? sum : sum.toFixed(2));
+    const sumDateTd = document.createElement('td');
+    sumTr.appendChild(sumLabelTd); sumTr.appendChild(sumAmountTd); sumTr.appendChild(sumDateTd);
+    body.appendChild(sumTr);
+  }
+}
+
+function setPrintMode(mode){
+  document.body.classList.toggle('print-attendance', mode === 'attendance');
+  document.body.classList.toggle('print-balance', mode === 'balance');
+  document.body.classList.toggle('print-expenses', mode === 'expenses');
+  document.body.classList.toggle('print-all', mode === 'all');
+}
+
+function stampGenerated(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const now = new Date();
+  el.innerHTML = '<span class="club">' + matchInfo.venue + '</span>Generated ' +
+    now.toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }) +
+    ', ' + now.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+}
+
+function downloadPDF(){
+  setPrintMode('attendance');
+  stampGenerated('printGenerated');
+  fillAttendanceMarkup('printMeta', 'printA', 'printB');
+  window.print();
+}
+
+function downloadBalancePDF(){
+  setPrintMode('balance');
+  stampGenerated('printBalanceGenerated');
+  fillBalanceMarkup('printBalanceMeta', 'printBalanceBody');
+  window.print();
+}
+
+function downloadExpensesPDF(){
+  setPrintMode('expenses');
+  stampGenerated('printExpensesGenerated');
+  fillExpensesMarkup('printExpensesMeta', 'printExpensesBody');
+  window.print();
+}
+
+function downloadAllPDF(){
+  setPrintMode('all');
+  stampGenerated('printAllGenerated');
+  fillRecordMarkup('printAllRecordMeta', 'printAllRecordBody');
+  fillAttendanceMarkup('printAllAttendMeta', 'printAllA', 'printAllB');
+  fillBalanceMarkup('printAllBalanceMeta', 'printAllBalanceBody');
+  fillExpensesMarkup('printAllExpensesMeta', 'printAllExpensesBody');
+  window.print();
+}
+
+</script>
+
+</body>
+</html>

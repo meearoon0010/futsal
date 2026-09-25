@@ -1046,6 +1046,60 @@
   }
   .logout-btn:hover{border-color:var(--red);color:var(--red);}
 
+  /* ---------- Tab navigation ---------- */
+  .tab-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:2px;
+    margin-bottom:24px;
+    border:1px solid var(--line);
+    background:var(--bg-panel-2);
+  }
+  .tab-btn{
+    flex:1 1 auto;
+    min-width:70px;
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-family:'Bebas Neue',sans-serif;
+    font-size:15px;
+    letter-spacing:0.4px;
+    padding:12px 8px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:background .12s ease, color .12s ease;
+  }
+  .tab-btn:hover{color:var(--chalk);background:rgba(242,245,238,0.04);}
+  .tab-btn.active{color:var(--amber);border-bottom-color:var(--amber);background:var(--bg-panel);}
+  .tab-page{display:none;}
+  .tab-page.active{display:block;}
+
+  /* ---------- Profile tab ---------- */
+  .profile-block{
+    border-top:1px solid var(--line);
+    padding:18px 0;
+  }
+  .profile-block:first-child{border-top:none;padding-top:0;}
+  .profile-heading{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:17px;
+    letter-spacing:0.4px;
+    margin:0 0 14px;
+    color:var(--chalk);
+  }
+  .profile-block .auth-field input{background:var(--bg-panel-2);}
+  .profile-status-line{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+  }
+  .profile-status-line:last-child{border-bottom:none;}
+  .profile-status-label{color:var(--muted);}
+  .profile-status-value{font-weight:700;color:var(--chalk);}
+
   .admin-badge{
     display:inline-block;
     margin-left:6px;
@@ -1254,17 +1308,13 @@
   <div class="user-bar">
     <div class="who-info">
       <span>Signed in as <span class="who" id="whoAmI"></span></span>
-      <span>
-        <span class="my-balance" id="myBalance"></span>
-        <button class="my-history-toggle" id="myHistoryToggle" onclick="toggleMyHistory()" style="display:none">History</button>
-      </span>
+      <span class="my-balance" id="myBalance"></span>
     </div>
     <div class="user-bar-actions">
       <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
       <button class="logout-btn" onclick="handleLogout()">Log out</button>
     </div>
   </div>
-  <div class="my-history" id="myHistoryList" style="display:none"></div>
 
   <div class="masthead">
     <div class="wordmark">
@@ -1295,101 +1345,177 @@
     </div>
   </div>
 
-  <div class="add-row admin-only">
-    <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
-    <select id="newPlayerGroup" title="Assign to a group (optional)">
-      <option value="">No group yet</option>
-      <option value="A">Group A</option>
-      <option value="B">Group B</option>
-    </select>
-    <button onclick="addPlayer()">Add</button>
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="roster" onclick="switchTab('roster')">Roster</button>
+    <button class="tab-btn" data-tab="teams" onclick="switchTab('teams')">Teams</button>
+    <button class="tab-btn" data-tab="status" onclick="switchTab('status')">Status</button>
+    <button class="tab-btn" data-tab="balance" onclick="switchTab('balance')">Balance</button>
+    <button class="tab-btn" data-tab="expenses" onclick="switchTab('expenses')">Expenses</button>
+    <button class="tab-btn" data-tab="profile" onclick="switchTab('profile')">Profile</button>
   </div>
 
-  <div class="section-title" onclick="toggleSection('roster')">
-    <span>Roster <span class="count" id="rosterCount"></span></span>
-    <span class="section-toggle" id="rosterToggle">▾</span>
-  </div>
-  <div class="section-body" id="rosterBody">
-    <div class="roster" id="rosterList"></div>
-    <button class="reset-btn admin-only" style="margin:2px 0 30px" onclick="resetPlayers()">Reset all attendance</button>
+  <div class="tab-page active" data-tab-page="roster" id="tabPage-roster">
+    <div class="add-row admin-only">
+      <input type="text" id="newPlayerInput" placeholder="Add player name" onkeydown="if(event.key==='Enter')addPlayer()">
+      <select id="newPlayerGroup" title="Assign to a group (optional)">
+        <option value="">No group yet</option>
+        <option value="A">Group A</option>
+        <option value="B">Group B</option>
+      </select>
+      <button onclick="addPlayer()">Add</button>
+    </div>
+
+    <div class="section-title" onclick="toggleSection('roster')">
+      <span>Roster <span class="count" id="rosterCount"></span></span>
+      <span class="section-toggle" id="rosterToggle">▾</span>
+    </div>
+    <div class="section-body" id="rosterBody">
+      <div class="roster" id="rosterList"></div>
+      <button class="reset-btn admin-only" style="margin:2px 0 30px" onclick="resetPlayers()">Reset all attendance</button>
+    </div>
   </div>
 
-  <div class="section-title" onclick="toggleSection('record')">
-    <span>Season Record</span>
-    <span class="section-toggle" id="recordToggle">▾</span>
-  </div>
-  <div class="section-body" id="recordBody">
-    <div class="record-wrap">
-      <div class="record-card A">
-        <h3>Group A</h3>
-        <div class="record-score" id="recordAScore">0W – 0L – 0D</div>
+  <div class="tab-page" data-tab-page="teams" id="tabPage-teams">
+    <div class="groups-wrap" id="groupsWrap" style="display:none">
+      <div class="section-title" onclick="toggleSection('teams')">
+        <span>Teams — Confirmed Players</span>
+        <span class="section-toggle" id="teamsToggle">▾</span>
       </div>
-      <div class="record-card B">
-        <h3>Group B</h3>
-        <div class="record-score" id="recordBScore">0W – 0L – 0D</div>
+      <div class="section-body" id="teamsBody">
+        <div class="groups-grid">
+          <div class="bib A">
+            <h3>Group A</h3>
+            <ul id="groupAList"></ul>
+          </div>
+          <div class="bib B">
+            <h3>Group B</h3>
+            <ul id="groupBList"></ul>
+          </div>
+        </div>
+        <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
       </div>
     </div>
-    <div class="record-actions admin-only" style="margin-bottom:30px">
-      <button class="record-btn a" onclick="recordResult('A')">Group A won</button>
-      <button class="record-btn draw" onclick="recordResult('draw')">Draw</button>
-      <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
-      <button class="record-reset" onclick="resetRecord()">Reset record</button>
-    </div>
+    <div class="empty-note" id="teamsEmptyNote" style="display:none">No one's confirmed for this match yet.</div>
   </div>
 
-  <div class="groups-wrap" id="groupsWrap" style="display:none">
-    <div class="section-title" onclick="toggleSection('teams')">
-      <span>Teams — Confirmed Players</span>
-      <span class="section-toggle" id="teamsToggle">▾</span>
+  <div class="tab-page" data-tab-page="status" id="tabPage-status">
+    <div class="section-title" style="cursor:default">
+      <span>Season Record</span>
     </div>
-    <div class="section-body" id="teamsBody">
-      <div class="groups-grid">
-        <div class="bib A">
+    <div class="section-body">
+      <div class="record-wrap">
+        <div class="record-card A">
           <h3>Group A</h3>
-          <ul id="groupAList"></ul>
+          <div class="record-score" id="recordAScore">0W – 0L – 0D</div>
         </div>
-        <div class="bib B">
+        <div class="record-card B">
           <h3>Group B</h3>
-          <ul id="groupBList"></ul>
+          <div class="record-score" id="recordBScore">0W – 0L – 0D</div>
         </div>
       </div>
-      <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
+      <div class="record-actions admin-only" style="margin-bottom:30px">
+        <button class="record-btn a" onclick="recordResult('A')">Group A won</button>
+        <button class="record-btn draw" onclick="recordResult('draw')">Draw</button>
+        <button class="record-btn b" onclick="recordResult('B')">Group B won</button>
+        <button class="record-reset" onclick="resetRecord()">Reset record</button>
+      </div>
     </div>
   </div>
 
-  <div class="section-title" onclick="toggleSection('balance')">
-    <span>Balance</span>
-    <span class="section-toggle" id="balanceToggle">▾</span>
-  </div>
-  <div class="section-body" id="balanceBody">
-    <div class="add-row admin-only">
-      <input type="number" id="bulkBalanceAmount" placeholder="Amount for everyone (Rs.)" min="0" step="0.01">
-      <button id="bulkAddBtn" onclick="bulkAdjustBalance('add')">+ Add all</button>
-      <button id="bulkSubtractBtn" class="subtract" onclick="bulkAdjustBalance('subtract')">− Subtract all</button>
+  <div class="tab-page" data-tab-page="balance" id="tabPage-balance">
+    <div class="section-title" style="cursor:default">
+      <span>Balance</span>
     </div>
-    <div class="balance-list" id="balanceList"></div>
-    <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
+    <div class="section-body">
+      <div class="add-row admin-only">
+        <input type="number" id="bulkBalanceAmount" placeholder="Amount for everyone (Rs.)" min="0" step="0.01">
+        <button id="bulkAddBtn" onclick="bulkAdjustBalance('add')">+ Add all</button>
+        <button id="bulkSubtractBtn" class="subtract" onclick="bulkAdjustBalance('subtract')">− Subtract all</button>
+      </div>
+      <div class="balance-list" id="balanceList"></div>
+      <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
+    </div>
   </div>
 
-  <div class="section-title" onclick="toggleSection('expenses')">
-    <span>Expenses</span>
-    <span class="section-toggle" id="expensesToggle">▾</span>
-  </div>
-  <div class="section-body" id="expensesBody">
-    <div class="add-row admin-only">
-      <input type="text" id="newExpenseVenue" placeholder="Venue">
-      <input type="number" id="newExpenseAmount" placeholder="Rs." min="0" step="0.01" style="flex:0 0 90px">
-      <button onclick="addExpense()">Add</button>
+  <div class="tab-page" data-tab-page="expenses" id="tabPage-expenses">
+    <div class="section-title" style="cursor:default">
+      <span>Expenses</span>
     </div>
-    <div class="expense-list" id="expenseList"></div>
-    <button class="balance-pdf-btn" onclick="downloadExpensesPDF()">Download expenses PDF</button>
+    <div class="section-body">
+      <div class="add-row admin-only">
+        <input type="text" id="newExpenseVenue" placeholder="Venue">
+        <input type="number" id="newExpenseAmount" placeholder="Rs." min="0" step="0.01" style="flex:0 0 90px">
+        <button onclick="addExpense()">Add</button>
+      </div>
+      <div class="expense-list" id="expenseList"></div>
+      <button class="balance-pdf-btn" onclick="downloadExpensesPDF()">Download expenses PDF</button>
+    </div>
   </div>
 
-  <div class="actions">
-    <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
-    <span class="note">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
-    <span class="note admin-only">Changes sync live — everyone signed in sees the same roster in real time.</span>
-    <span class="status-msg" id="statusMsg"></span>
+  <div class="tab-page" data-tab-page="profile" id="tabPage-profile">
+    <div class="section-title" style="cursor:default">
+      <span>Profile</span>
+    </div>
+    <div class="section-body">
+
+      <div class="profile-block">
+        <h3 class="profile-heading">Account</h3>
+        <form id="changeNameForm" onsubmit="handleChangeName(event)">
+          <div class="auth-field">
+            <label for="profileNameInput">Display name</label>
+            <input type="text" id="profileNameInput" required>
+          </div>
+          <button type="submit" class="auth-submit" id="changeNameBtn" style="width:auto;padding:10px 18px;">Save name</button>
+        </form>
+        <div class="auth-msg" id="nameMsg"></div>
+
+        <form id="changePasswordForm" onsubmit="handleChangePassword(event)" style="margin-top:20px;">
+          <div class="auth-field">
+            <label for="profileNewPassword">New password</label>
+            <div class="password-field">
+              <input type="password" id="profileNewPassword" autocomplete="new-password" minlength="6" required>
+              <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="profileNewPasswordConfirm">Confirm new password</label>
+            <div class="password-field">
+              <input type="password" id="profileNewPasswordConfirm" autocomplete="new-password" minlength="6" required>
+              <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <button type="submit" class="auth-submit" id="changePasswordBtn" style="width:auto;padding:10px 18px;">Update password</button>
+        </form>
+        <div class="auth-msg" id="passwordMsg"></div>
+      </div>
+
+      <div class="profile-block">
+        <h3 class="profile-heading">My balance</h3>
+        <div class="balance-top" style="margin-bottom:12px;">
+          <span class="balance-name">Current balance</span>
+          <span class="balance-amount" id="profileBalanceAmount"></span>
+        </div>
+        <div id="profileHistoryList"></div>
+      </div>
+
+      <div class="profile-block">
+        <h3 class="profile-heading">My match status</h3>
+        <div id="profileStatusBlock"></div>
+      </div>
+
+      <div class="profile-block">
+        <h3 class="profile-heading">Reports</h3>
+        <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
+        <span class="note" style="display:block;margin-top:8px;">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
+        <span class="note admin-only" style="display:block;margin-top:4px;">Changes sync live — everyone signed in sees the same roster in real time.</span>
+        <span class="status-msg" id="statusMsg"></span>
+      </div>
+
+      <div class="profile-block">
+        <button class="logout-btn" style="padding:10px 18px;font-size:13px;" onclick="handleLogout()">Log out</button>
+      </div>
+
+    </div>
   </div>
 
 </div>
@@ -1760,6 +1886,11 @@ async function showApp(user){
   document.body.classList.toggle('role-admin', isAdmin);
   document.body.classList.toggle('role-viewer', !isAdmin);
 
+  let startTab = 'roster';
+  try{ startTab = localStorage.getItem('futsalActiveTab') || 'roster'; }catch(e){}
+  if(!document.querySelector(`.tab-btn[data-tab="${startTab}"]`)) startTab = 'roster';
+  switchTab(startTab);
+
   // fresh login: allow the "are you playing?" prompt to show again
   // (the renew-payment popup uses localStorage, not session state, so it
   // survives a page reload and only shows once per reminder)
@@ -1935,6 +2066,17 @@ function setStatus(msg){
   setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 1800);
 }
 
+/* ---------- Top-level tab navigation ---------- */
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.tab === name);
+  });
+  document.querySelectorAll('.tab-page').forEach(page=>{
+    page.classList.toggle('active', page.dataset.tabPage === name);
+  });
+  try{ localStorage.setItem('futsalActiveTab', name); }catch(e){}
+}
+
 /* ---------- Collapse / expand each table ---------- */
 function toggleSection(id){
   const body = document.getElementById(id + 'Body');
@@ -2028,6 +2170,9 @@ async function autoAssignGroup(id){
 
 async function removePlayer(id){
   if(!isAdmin) return;
+  const p = players.find(p=>p.id===id);
+  const label = p ? p.display_name : 'this player';
+  if(!confirm(`Remove ${label} from the roster? This can't be undone.`)) return;
   const { error } = await sbClient.from('players').delete().eq('id', id);
   setStatus(error ? 'Could not remove player' : 'Player removed');
 }
@@ -2334,6 +2479,109 @@ function toggleMyHistory(){
   render();
 }
 
+/* ---------- Profile tab: name, password, balance, match status ---------- */
+async function handleChangeName(e){
+  e.preventDefault();
+  const input = document.getElementById('profileNameInput');
+  const btn = document.getElementById('changeNameBtn');
+  const newName = input.value.trim();
+  if(!newName || !myPlayerId) return;
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const { error } = await sbClient.from('players').update({ display_name: newName }).eq('id', myPlayerId);
+  if(!error){
+    await sbClient.auth.updateUser({ data: { display_name: newName } });
+    const p = players.find(p=>p.id===myPlayerId);
+    if(p) p.display_name = newName;
+    if(!isAdmin) document.getElementById('whoAmI').textContent = newName;
+  }
+  btn.disabled = false; btn.textContent = 'Save name';
+  setProfileMsg('nameMsg', error ? 'Could not save — try again' : 'Name updated', error ? 'error' : 'success');
+  render();
+}
+
+async function handleChangePassword(e){
+  e.preventDefault();
+  const pw = document.getElementById('profileNewPassword').value;
+  const confirmPw = document.getElementById('profileNewPasswordConfirm').value;
+  const btn = document.getElementById('changePasswordBtn');
+  if(pw.length < 6){ setProfileMsg('passwordMsg', 'Password must be at least 6 characters', 'error'); return; }
+  if(pw !== confirmPw){ setProfileMsg('passwordMsg', 'Passwords do not match', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Updating…';
+  const { error } = await sbClient.auth.updateUser({ password: pw });
+  btn.disabled = false; btn.textContent = 'Update password';
+  if(!error){
+    document.getElementById('changePasswordForm').reset();
+  }
+  setProfileMsg('passwordMsg', error ? (error.message || 'Could not update password') : 'Password updated', error ? 'error' : 'success');
+}
+
+function setProfileMsg(id, msg, type){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'auth-msg' + (type ? ' '+type : '');
+}
+
+function renderProfileTab(mine){
+  const nameInput = document.getElementById('profileNameInput');
+  if(nameInput && document.activeElement !== nameInput){
+    nameInput.value = mine ? mine.display_name : '';
+  }
+
+  const balEl = document.getElementById('profileBalanceAmount');
+  const historyWrap = document.getElementById('profileHistoryList');
+  if(mine){
+    const myBal = Number(mine.balance || 0);
+    balEl.textContent = 'Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
+    balEl.classList.toggle('low', myBal <= 0);
+    historyWrap.innerHTML = '';
+    historyWrap.appendChild(buildHistoryList(mine.id));
+  } else {
+    balEl.textContent = '';
+    historyWrap.innerHTML = '';
+  }
+
+  const statusBlock = document.getElementById('profileStatusBlock');
+  statusBlock.innerHTML = '';
+  const attendLine = document.createElement('div');
+  attendLine.className = 'profile-status-line';
+  const attendLabel = document.createElement('span');
+  attendLabel.className = 'profile-status-label';
+  attendLabel.textContent = 'This match';
+  const attendValue = document.createElement('span');
+  attendValue.className = 'profile-status-value';
+  attendValue.textContent = !mine || mine.attend == null ? 'Not answered yet' : (mine.attend === 'yes' ? "Playing" : "Not playing");
+  attendLine.appendChild(attendLabel); attendLine.appendChild(attendValue);
+  statusBlock.appendChild(attendLine);
+
+  const groupLine = document.createElement('div');
+  groupLine.className = 'profile-status-line';
+  const groupLabel = document.createElement('span');
+  groupLabel.className = 'profile-status-label';
+  groupLabel.textContent = 'Group';
+  const groupValue = document.createElement('span');
+  groupValue.className = 'profile-status-value';
+  groupValue.textContent = mine && mine.group_name ? `Group ${mine.group_name}` : 'Not assigned';
+  groupLine.appendChild(groupLabel); groupLine.appendChild(groupValue);
+  statusBlock.appendChild(groupLine);
+
+  if(mine && mine.group_name){
+    const aWins = matchInfo.a_wins || 0, bWins = matchInfo.b_wins || 0, draws = matchInfo.draws || 0;
+    const mineWins = mine.group_name === 'A' ? aWins : bWins;
+    const mineLosses = mine.group_name === 'A' ? bWins : aWins;
+    const recordLine = document.createElement('div');
+    recordLine.className = 'profile-status-line';
+    const recordLabel = document.createElement('span');
+    recordLabel.className = 'profile-status-label';
+    recordLabel.textContent = "Your group's scorecard";
+    const recordValue = document.createElement('span');
+    recordValue.className = 'profile-status-value';
+    recordValue.textContent = `${mineWins}W – ${mineLosses}L – ${draws}D`;
+    recordLine.appendChild(recordLabel); recordLine.appendChild(recordValue);
+    statusBlock.appendChild(recordLine);
+  }
+}
+
 async function toggleRenewReminder(id){
   if(!isAdmin) return;
   const p = players.find(p=>p.id===id);
@@ -2364,28 +2612,15 @@ function render(){
   document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
 
   const myBalanceEl = document.getElementById('myBalance');
-  const myHistoryToggle = document.getElementById('myHistoryToggle');
-  const myHistoryList = document.getElementById('myHistoryList');
   const mine = players.find(p => p.id === myPlayerId);
   if(mine){
     const myBal = Number(mine.balance || 0);
     myBalanceEl.textContent = 'Balance: Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
     myBalanceEl.classList.toggle('low', myBal <= 0);
-    const myTxCount = balanceTransactions.filter(t => t.player_id === mine.id).length;
-    myHistoryToggle.style.display = '';
-    myHistoryToggle.textContent = (myHistoryExpanded ? 'Hide history' : 'History') + (myTxCount ? ` (${myTxCount})` : '');
-    if(myHistoryExpanded){
-      myHistoryList.innerHTML = '';
-      myHistoryList.appendChild(buildHistoryList(mine.id));
-      myHistoryList.style.display = 'block';
-    } else {
-      myHistoryList.style.display = 'none';
-    }
   } else {
     myBalanceEl.textContent = '';
-    myHistoryToggle.style.display = 'none';
-    myHistoryList.style.display = 'none';
   }
+  renderProfileTab(mine);
 
   const rosterList = document.getElementById('rosterList');
   rosterList.innerHTML = '';
@@ -2625,10 +2860,13 @@ function render(){
   // Groups section
   const yesPlayers = players.filter(p=>p.attend==='yes');
   const groupsWrap = document.getElementById('groupsWrap');
+  const teamsEmptyNote = document.getElementById('teamsEmptyNote');
   if(yesPlayers.length === 0){
     groupsWrap.style.display = 'none';
+    if(teamsEmptyNote) teamsEmptyNote.style.display = 'block';
   } else {
     groupsWrap.style.display = 'block';
+    if(teamsEmptyNote) teamsEmptyNote.style.display = 'none';
     const aList = document.getElementById('groupAList');
     const bList = document.getElementById('groupBList');
     aList.innerHTML = '';

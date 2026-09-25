@@ -1017,44 +1017,10 @@
   .user-bar{
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    margin-bottom:18px;
+    justify-content:flex-end;
+    margin-bottom:14px;
     font-size:12px;
     color:var(--muted);
-  }
-  .who-info{
-    display:flex;
-    flex-direction:column;
-    gap:3px;
-  }
-  .user-bar .who{color:var(--chalk);font-weight:600;}
-  .my-balance{font-size:11px;color:var(--turf-bright);font-weight:600;}
-  .my-balance.low{color:var(--red);}
-  .my-history-toggle{
-    background:none;
-    border:none;
-    color:var(--muted);
-    font-size:11px;
-    font-weight:600;
-    text-decoration:underline;
-    cursor:pointer;
-    padding:0;
-    margin-left:8px;
-  }
-  .my-history-toggle:hover{color:var(--amber);}
-  .my-history{
-    margin:-10px 0 18px;
-    padding:10px 12px;
-    border:1px solid var(--line);
-    background:var(--bg-panel);
-  }
-  .my-history .history-list{border-top:none;margin-top:0;padding-top:0;}
-  .my-history .empty-note{padding:0;}
-  .user-bar-actions{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    flex-shrink:0;
   }
   .refresh-btn{
     background:none;
@@ -1162,6 +1128,56 @@
   .profile-status-line:last-child{border-bottom:none;}
   .profile-status-label{color:var(--muted);}
   .profile-status-value{font-weight:700;color:var(--chalk);}
+
+  .profile-signed-in{
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:18px;
+  }
+  .profile-signed-in strong{color:var(--chalk);font-weight:700;}
+  .profile-menu{
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+    margin-bottom:22px;
+  }
+  .profile-menu-item{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--bg-panel);
+    border:none;
+    border-bottom:1px solid var(--line);
+    color:var(--chalk);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    padding:14px 16px;
+    cursor:pointer;
+    text-align:left;
+    transition:background .12s ease;
+  }
+  .profile-menu-item:last-of-type{border-bottom:none;}
+  .profile-menu-item:hover{background:var(--bg-panel-2);}
+  .profile-menu-item.open{background:var(--bg-panel-2);color:var(--amber);}
+  .profile-menu-chevron{
+    color:var(--muted);
+    font-size:16px;
+    line-height:1;
+    transition:transform .15s ease, color .15s ease;
+    flex-shrink:0;
+  }
+  .profile-menu-item.open .profile-menu-chevron{transform:rotate(90deg);color:var(--amber);}
+  .profile-panel{
+    padding:16px;
+    background:var(--bg-panel-2);
+    border-bottom:1px solid var(--line);
+  }
+  .profile-panel:last-child{border-bottom:none;}
+  .profile-panel form{margin:0;}
+  .profile-panel .auth-field:last-of-type{margin-bottom:14px;}
 
   .admin-badge{
     display:inline-block;
@@ -1369,14 +1385,7 @@
 <div class="app" id="appWrap" style="display:none">
 
   <div class="user-bar">
-    <div class="who-info">
-      <span>Signed in as <span class="who" id="whoAmI"></span></span>
-      <span class="my-balance" id="myBalance"></span>
-    </div>
-    <div class="user-bar-actions">
-      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
-      <button class="logout-btn" onclick="handleLogout()">Log out</button>
-    </div>
+    <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
   </div>
 
   <div class="masthead">
@@ -1541,52 +1550,71 @@
     </div>
     <div class="section-body">
 
-      <div class="profile-block">
-        <h3 class="profile-heading">Account</h3>
-        <form id="changeNameForm" onsubmit="handleChangeName(event)">
-          <div class="auth-field">
-            <label for="profileNameInput">Display name</label>
-            <input type="text" id="profileNameInput" required>
-          </div>
-          <button type="submit" class="auth-submit" id="changeNameBtn" style="width:auto;padding:10px 18px;">Save name</button>
-        </form>
-        <div class="auth-msg" id="nameMsg"></div>
+      <div class="profile-signed-in">Signed in as <strong id="profileWhoAmI"></strong></div>
 
-        <form id="changePasswordForm" onsubmit="handleChangePassword(event)" style="margin-top:20px;">
-          <div class="auth-field">
-            <label for="profileNewPassword">New password</label>
-            <div class="password-field">
-              <input type="password" id="profileNewPassword" autocomplete="new-password" minlength="6" required>
-              <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <div class="profile-menu">
+        <button type="button" class="profile-menu-item" data-panel="name" onclick="toggleProfilePanel('name')">
+          <span>Change display name</span>
+          <span class="profile-menu-chevron">›</span>
+        </button>
+        <div class="profile-panel" id="profilePanel-name" style="display:none">
+          <form id="changeNameForm" onsubmit="handleChangeName(event)">
+            <div class="auth-field">
+              <label for="profileNameInput">Display name</label>
+              <input type="text" id="profileNameInput" required>
             </div>
-          </div>
-          <div class="auth-field">
-            <label for="profileNewPasswordConfirm">Confirm new password</label>
-            <div class="password-field">
-              <input type="password" id="profileNewPasswordConfirm" autocomplete="new-password" minlength="6" required>
-              <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-            </div>
-          </div>
-          <button type="submit" class="auth-submit" id="changePasswordBtn" style="width:auto;padding:10px 18px;">Update password</button>
-        </form>
-        <div class="auth-msg" id="passwordMsg"></div>
-      </div>
-
-      <div class="profile-block">
-        <h3 class="profile-heading">My balance</h3>
-        <div class="balance-top" style="margin-bottom:12px;">
-          <span class="balance-name">Current balance</span>
-          <span class="balance-amount" id="profileBalanceAmount"></span>
+            <button type="submit" class="auth-submit" id="changeNameBtn" style="width:auto;padding:10px 18px;">Save name</button>
+          </form>
+          <div class="auth-msg" id="nameMsg"></div>
         </div>
-        <div id="profileHistoryList"></div>
+
+        <button type="button" class="profile-menu-item" data-panel="password" onclick="toggleProfilePanel('password')">
+          <span>Change password</span>
+          <span class="profile-menu-chevron">›</span>
+        </button>
+        <div class="profile-panel" id="profilePanel-password" style="display:none">
+          <form id="changePasswordForm" onsubmit="handleChangePassword(event)">
+            <div class="auth-field">
+              <label for="profileNewPassword">New password</label>
+              <div class="password-field">
+                <input type="password" id="profileNewPassword" autocomplete="new-password" minlength="6" required>
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
+            </div>
+            <div class="auth-field">
+              <label for="profileNewPasswordConfirm">Confirm new password</label>
+              <div class="password-field">
+                <input type="password" id="profileNewPasswordConfirm" autocomplete="new-password" minlength="6" required>
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
+            </div>
+            <button type="submit" class="auth-submit" id="changePasswordBtn" style="width:auto;padding:10px 18px;">Update password</button>
+          </form>
+          <div class="auth-msg" id="passwordMsg"></div>
+        </div>
+
+        <button type="button" class="profile-menu-item" data-panel="balance" onclick="toggleProfilePanel('balance')">
+          <span>Balance</span>
+          <span class="profile-menu-chevron">›</span>
+        </button>
+        <div class="profile-panel" id="profilePanel-balance" style="display:none">
+          <div class="balance-top" style="margin-bottom:12px;">
+            <span class="balance-name">Current balance</span>
+            <span class="balance-amount" id="profileBalanceAmount"></span>
+          </div>
+          <div id="profileHistoryList"></div>
+        </div>
+
+        <button type="button" class="profile-menu-item" data-panel="status" onclick="toggleProfilePanel('status')">
+          <span>Status</span>
+          <span class="profile-menu-chevron">›</span>
+        </button>
+        <div class="profile-panel" id="profilePanel-status" style="display:none">
+          <div id="profileStatusBlock"></div>
+        </div>
       </div>
 
-      <div class="profile-block">
-        <h3 class="profile-heading">My match status</h3>
-        <div id="profileStatusBlock"></div>
-      </div>
-
-      <div class="profile-block">
+      <div class="profile-block" style="border-top:none;padding-top:0;">
         <h3 class="profile-heading">Reports</h3>
         <button class="download-btn secondary" onclick="downloadAllPDF()">Download all</button>
         <span class="note" style="display:block;margin-top:8px;">Opens your browser's print dialog — choose "Save as PDF" as the destination.</span>
@@ -1935,7 +1963,6 @@ let players = []; // rows from public.players: {id, user_id, display_name, atten
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
 let expandedHistory = new Set(); // player ids whose history is expanded (admin view, in the Balance table)
-let myHistoryExpanded = false; // whether the signed-in user's own history is expanded (in the profile bar)
 const LOW_BALANCE_THRESHOLD = 200;
 let myUserId = null;
 let myPlayerId = null;
@@ -1956,7 +1983,7 @@ async function showApp(user){
   isAdmin = email === ADMIN_EMAIL;
   myUserId = user.id;
   const displayName = isAdmin ? 'ARUN' : (user?.user_metadata?.display_name || user?.email || 'Player');
-  const whoAmI = document.getElementById('whoAmI');
+  const whoAmI = document.getElementById('profileWhoAmI');
   whoAmI.textContent = displayName;
   const existingBadge = whoAmI.parentElement.querySelector('.admin-badge');
   if(existingBadge) existingBadge.remove();
@@ -1999,7 +2026,6 @@ function showAuthScreen(){
   prevMineAttend = undefined;
   attendPromptDismissed = false;
   expandedHistory.clear();
-  myHistoryExpanded = false;
 }
 
 sbClient.auth.onAuthStateChange((_event, session) => {
@@ -2557,11 +2583,6 @@ function toggleBalanceHistory(id){
   render();
 }
 
-function toggleMyHistory(){
-  myHistoryExpanded = !myHistoryExpanded;
-  render();
-}
-
 /* ---------- Profile tab: name, password, balance, match status ---------- */
 async function handleChangeName(e){
   e.preventDefault();
@@ -2575,7 +2596,7 @@ async function handleChangeName(e){
     await sbClient.auth.updateUser({ data: { display_name: newName } });
     const p = players.find(p=>p.id===myPlayerId);
     if(p) p.display_name = newName;
-    if(!isAdmin) document.getElementById('whoAmI').textContent = newName;
+    if(!isAdmin) document.getElementById('profileWhoAmI').textContent = newName;
   }
   btn.disabled = false; btn.textContent = 'Save name';
   setProfileMsg('nameMsg', error ? 'Could not save — try again' : 'Name updated', error ? 'error' : 'success');
@@ -2603,6 +2624,21 @@ function setProfileMsg(id, msg, type){
   if(!el) return;
   el.textContent = msg || '';
   el.className = 'auth-msg' + (type ? ' '+type : '');
+}
+
+function toggleProfilePanel(name){
+  const panel = document.getElementById('profilePanel-' + name);
+  if(!panel) return;
+  const opening = panel.style.display === 'none' || !panel.style.display;
+  document.querySelectorAll('.profile-panel').forEach(p => { p.style.display = 'none'; });
+  document.querySelectorAll('.profile-menu-item').forEach(b => b.classList.remove('open'));
+  if(opening){
+    panel.style.display = 'block';
+    const btn = document.querySelector(`.profile-menu-item[data-panel="${name}"]`);
+    if(btn) btn.classList.add('open');
+    const firstInput = panel.querySelector('input');
+    if(firstInput) setTimeout(() => firstInput.focus(), 60);
+  }
 }
 
 function renderProfileTab(mine){
@@ -2694,15 +2730,7 @@ function render(){
   document.getElementById('recordAScore').textContent = `${aWins}W – ${bWins}L – ${draws}D`;
   document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
 
-  const myBalanceEl = document.getElementById('myBalance');
   const mine = players.find(p => p.id === myPlayerId);
-  if(mine){
-    const myBal = Number(mine.balance || 0);
-    myBalanceEl.textContent = 'Balance: Rs. ' + (Number.isInteger(myBal) ? myBal : myBal.toFixed(2));
-    myBalanceEl.classList.toggle('low', myBal <= 0);
-  } else {
-    myBalanceEl.textContent = '';
-  }
   renderProfileTab(mine);
 
   const rosterList = document.getElementById('rosterList');

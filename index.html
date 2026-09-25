@@ -617,6 +617,42 @@
     margin-right:10px;
   }
 
+  /* ---------- Team match scorecard (Stats tab) ---------- */
+  .team-scorecard{
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--bg-panel);
+    padding:18px 14px;
+    text-align:center;
+  }
+  .team-scorecard-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+  }
+  .team-scorecard-name{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:16px;
+    letter-spacing:0.6px;
+    color:var(--muted);
+    flex:1;
+  }
+  .team-scorecard-name:first-child{text-align:right;}
+  .team-scorecard-name:last-child{text-align:left;}
+  .team-scorecard-score{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:30px;
+    letter-spacing:0.5px;
+    color:var(--amber);
+    flex-shrink:0;
+  }
+  .team-scorecard-meta{
+    margin-top:10px;
+    font-size:12px;
+    color:var(--muted);
+  }
+
   /* ---------- Groups (bibs) ---------- */
   .groups-wrap{margin-bottom:30px;}
   .groups-grid{
@@ -1562,7 +1598,6 @@
         <span class="section-toggle" id="teamsToggle">▾</span>
       </div>
       <div class="section-body" id="teamsBody">
-        <button class="reset-btn admin-only" style="margin:2px 0 14px" onclick="resetPlayers()">Reset all attendance</button>
         <div class="groups-grid">
           <div class="bib A">
             <h3>Group A</h3>
@@ -1573,6 +1608,7 @@
             <ul id="groupBList"></ul>
           </div>
         </div>
+        <button class="reset-btn admin-only" style="margin:14px 0" onclick="resetPlayers()">Reset all attendance</button>
         <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
       </div>
     </div>
@@ -1603,19 +1639,25 @@
     </div>
 
     <div class="section-title" style="cursor:default">
-      <span>Goal Scorecard</span>
+      <span>Match Scorecard</span>
     </div>
     <div class="section-body">
-      <div class="add-row admin-only">
-        <select id="goalPlayerSelect"></select>
-        <input type="number" id="goalCountInput" min="1" step="1" placeholder="Goals" style="flex:0 0 78px">
-        <button onclick="addGoalEntry()">Add</button>
+      <div class="team-scorecard">
+        <div class="team-scorecard-row">
+          <span class="team-scorecard-name">TEAM A</span>
+          <span class="team-scorecard-score" id="teamScoreDisplay">0 – 0</span>
+          <span class="team-scorecard-name">TEAM B</span>
+        </div>
+        <div class="team-scorecard-meta" id="teamScorecardMeta"></div>
       </div>
-      <div class="goal-list" id="goalList"></div>
-      <div class="empty-note" id="goalListEmptyNote" style="display:none">No goals logged for this match yet.</div>
-      <button class="auth-submit admin-only" id="submitStatsBtn" style="width:auto;padding:11px 22px;margin-top:4px;" onclick="submitMatchStats()">Submit match result</button>
+      <div class="add-row admin-only" style="margin-top:14px;">
+        <input type="number" id="goalsAInput" min="0" step="1" placeholder="Team A goals">
+        <input type="number" id="goalsBInput" min="0" step="1" placeholder="Team B goals">
+        <button onclick="saveTeamScore()">Save score</button>
+      </div>
+      <button class="auth-submit admin-only" id="submitStatsBtn" style="width:auto;padding:11px 22px;margin-top:16px;" onclick="submitMatchStats()">Submit match result</button>
       <div class="auth-msg" id="statsSubmitMsg"></div>
-      <span class="note admin-only" style="display:block;margin-top:10px;">Submitting files this match's result and goal scorecard into every grouped player's own record (see their Profile → Status), then clears the scorecard for the next match.</span>
+      <span class="note admin-only" style="display:block;margin-top:10px;">Submitting files this score and result into every grouped player's own record (see their Profile → Status), moves Next Schedule into the current match, and resets attendance for the next game.</span>
     </div>
   </div>
 
@@ -2066,7 +2108,7 @@ const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
 let isAdmin = false;
 
 /* ---------- Shared, realtime app state (Supabase) ---------- */
-let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_json: [], last_result: null };
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
@@ -2446,85 +2488,42 @@ async function resetRecord(){
   setStatus(error ? 'Could not reset record' : 'Season record reset');
 }
 
-/* ---------- Goal scorecard: build up this match's scorers before Submit ---------- */
-function renderGoalScorecard(){
-  const select = document.getElementById('goalPlayerSelect');
-  if(select){
-    const eligible = players.filter(p => p.group_name).sort((a,b)=>a.display_name.localeCompare(b.display_name));
-    const prevValue = select.value;
-    select.innerHTML = '<option value="">Select player</option>' +
-      eligible.map(p => `<option value="${p.id}">${escapeHtml(p.display_name)} (Group ${p.group_name})</option>`).join('');
-    if(eligible.some(p => p.id === prevValue)) select.value = prevValue;
-  }
+/* ---------- Team match scorecard: TEAM A x – y TEAM B, for this match ---------- */
+function renderTeamScorecard(){
+  const scoreDisplay = document.getElementById('teamScoreDisplay');
+  const meta = document.getElementById('teamScorecardMeta');
+  if(!scoreDisplay || !meta) return;
+  const a = matchInfo.goals_a || 0, b = matchInfo.goals_b || 0;
+  scoreDisplay.textContent = `${a} – ${b}`;
+  meta.textContent = `${matchInfo.venue || 'Venue not set'} · ${matchInfo.kickoff_time || 'Time not set'}`;
 
-  const goals = Array.isArray(matchInfo.goals_json) ? matchInfo.goals_json : [];
-  const list = document.getElementById('goalList');
-  const emptyNote = document.getElementById('goalListEmptyNote');
-  if(!list || !emptyNote) return;
-  list.innerHTML = '';
-  if(goals.length === 0){
-    emptyNote.style.display = 'block';
-  } else {
-    emptyNote.style.display = 'none';
-    goals.forEach(g => {
-      const p = players.find(pl => pl.id === g.player_id);
-      const row = document.createElement('div');
-      row.className = 'goal-row';
-      const name = document.createElement('span');
-      name.className = 'goal-row-name';
-      name.textContent = p ? p.display_name : 'Unknown player';
-      const count = document.createElement('span');
-      count.className = 'goal-row-count';
-      count.textContent = g.goals + (g.goals === 1 ? ' goal' : ' goals');
-      row.appendChild(name);
-      row.appendChild(count);
-      if(isAdmin){
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'expense-delete';
-        removeBtn.textContent = 'Remove';
-        removeBtn.onclick = () => removeGoalEntry(g.player_id);
-        row.appendChild(removeBtn);
-      }
-      list.appendChild(row);
-    });
-  }
+  const aInput = document.getElementById('goalsAInput');
+  const bInput = document.getElementById('goalsBInput');
+  if(aInput && document.activeElement !== aInput) aInput.value = a || '';
+  if(bInput && document.activeElement !== bInput) bInput.value = b || '';
 }
 
-async function addGoalEntry(){
+async function saveTeamScore(){
   if(!isAdmin) return;
-  const select = document.getElementById('goalPlayerSelect');
-  const countInput = document.getElementById('goalCountInput');
-  const playerId = select.value;
-  const count = parseInt(countInput.value, 10);
-  if(!playerId){ setStatus('Pick a player first'); return; }
-  if(isNaN(count) || count <= 0){ setStatus('Enter a valid goal count'); return; }
+  const aInput = document.getElementById('goalsAInput');
+  const bInput = document.getElementById('goalsBInput');
+  const a = parseInt(aInput.value, 10);
+  const b = parseInt(bInput.value, 10);
+  if(isNaN(a) || isNaN(b) || a < 0 || b < 0){ setStatus('Enter valid goal counts for both teams'); return; }
 
-  const goals = Array.isArray(matchInfo.goals_json) ? [...matchInfo.goals_json] : [];
-  const existing = goals.find(g => g.player_id === playerId);
-  if(existing) existing.goals += count;
-  else goals.push({ player_id: playerId, goals: count });
-
-  matchInfo.goals_json = goals; // optimistic
+  matchInfo.goals_a = a; matchInfo.goals_b = b; // optimistic
   render();
-  countInput.value = '';
-  select.value = '';
-  const { error } = await sbClient.from('match_info').update({ goals_json: goals }).eq('id', 1);
-  setStatus(error ? 'Could not save goal — try again' : 'Goal added');
+  const { error } = await sbClient.from('match_info').update({ goals_a: a, goals_b: b }).eq('id', 1);
+  setStatus(error ? 'Could not save score — try again' : 'Score saved');
 }
 
-async function removeGoalEntry(playerId){
-  if(!isAdmin) return;
-  const goals = (matchInfo.goals_json || []).filter(g => g.player_id !== playerId);
-  matchInfo.goals_json = goals; // optimistic
-  render();
-  const { error } = await sbClient.from('match_info').update({ goals_json: goals }).eq('id', 1);
-  setStatus(error ? 'Could not remove entry' : 'Entry removed');
-}
-
-/* Files this match's result + goal scorecard into each grouped player's
-   own record (public.match_history), then clears the scorecard so the
-   next match starts fresh. Season W-L-D totals are untouched — those
-   only change via the record buttons above. */
+/* Files this match's score + result into each grouped player's own
+   record (public.match_history) — their group, whether they won, and
+   the final score for/against. Then rolls Next Schedule into the
+   current match, clears the scorecard, and resets attendance/groups
+   for everyone so the roster starts fresh for the next game. Season
+   W-L-D totals are untouched — those only change via the record
+   buttons above. */
 async function submitMatchStats(){
   if(!isAdmin) return;
   const result = matchInfo.last_result;
@@ -2537,10 +2536,11 @@ async function submitMatchStats(){
     setProfileMsg('statsSubmitMsg', 'No players are placed in a group yet', 'error');
     return;
   }
-  const goals = Array.isArray(matchInfo.goals_json) ? matchInfo.goals_json : [];
+  const goalsA = matchInfo.goals_a || 0, goalsB = matchInfo.goals_b || 0;
   const matchDate = new Date().toISOString().slice(0, 10);
   const rows = grouped.map(p => {
-    const g = goals.find(x => x.player_id === p.id);
+    const scoreFor = p.group_name === 'A' ? goalsA : goalsB;
+    const scoreAgainst = p.group_name === 'A' ? goalsB : goalsA;
     const rowResult = result === 'draw' ? 'draw' : (p.group_name === result ? 'win' : 'loss');
     return {
       player_id: p.id,
@@ -2548,25 +2548,42 @@ async function submitMatchStats(){
       venue: matchInfo.venue,
       group_name: p.group_name,
       result: rowResult,
-      goals: g ? g.goals : 0
+      goals: scoreFor,
+      goals_against: scoreAgainst
     };
   });
 
   const btn = document.getElementById('submitStatsBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
   const { error } = await sbClient.from('match_history').insert(rows);
-  if(btn){ btn.disabled = false; btn.textContent = 'Submit match result'; }
 
   if(error){
+    if(btn){ btn.disabled = false; btn.textContent = 'Submit match result'; }
     setProfileMsg('statsSubmitMsg', 'Could not submit — try again', 'error');
     return;
   }
 
-  matchInfo.goals_json = [];
-  matchInfo.last_result = null;
+  // Roll Next Schedule into the current match, and reset for the next game.
+  const newVenue = (matchInfo.next_venue || '').trim() || matchInfo.venue;
+  const newKickoff = (matchInfo.next_kickoff_time || '').trim() || matchInfo.kickoff_time;
+  const matchInfoUpdates = {
+    venue: newVenue,
+    kickoff_time: newKickoff,
+    next_venue: '',
+    next_kickoff_time: '',
+    goals_a: 0,
+    goals_b: 0,
+    last_result: null
+  };
+  Object.assign(matchInfo, matchInfoUpdates);
+  players.forEach(p => { p.attend = null; p.group_name = null; });
   render();
-  await sbClient.from('match_info').update({ goals_json: [], last_result: null }).eq('id', 1);
-  setProfileMsg('statsSubmitMsg', `Submitted — filed into ${rows.length} player record${rows.length === 1 ? '' : 's'}`, 'success');
+
+  await sbClient.from('match_info').update(matchInfoUpdates).eq('id', 1);
+  await sbClient.from('players').update({ attend: null, group_name: null }).not('id', 'is', null);
+
+  if(btn){ btn.disabled = false; btn.textContent = 'Submit match result'; }
+  setProfileMsg('statsSubmitMsg', `Submitted — filed into ${rows.length} player record${rows.length === 1 ? '' : 's'}. Next match is now the current one; attendance reset.`, 'success');
 }
 
 /* ---------- Expenses (admin adds/removes; everyone can see them) ---------- */
@@ -2954,7 +2971,7 @@ function renderProfileTab(mine){
         const resultBadge = document.createElement('span');
         resultBadge.className = 'goal-row-count';
         const resultLabel = h.result === 'win' ? 'Won' : h.result === 'loss' ? 'Lost' : 'Draw';
-        resultBadge.textContent = `${resultLabel} · ${h.goals || 0} goal${h.goals === 1 ? '' : 's'}`;
+        resultBadge.textContent = `${resultLabel} ${h.goals || 0}-${h.goals_against || 0}`;
         row.appendChild(info);
         row.appendChild(resultBadge);
         historyList.appendChild(row);
@@ -2993,7 +3010,7 @@ function render(){
   const draws = matchInfo.draws || 0;
   document.getElementById('recordAScore').textContent = `${aWins}W – ${bWins}L – ${draws}D`;
   document.getElementById('recordBScore').textContent = `${bWins}W – ${aWins}L – ${draws}D`;
-  renderGoalScorecard();
+  renderTeamScorecard();
 
   const mine = players.find(p => p.id === myPlayerId);
   renderProfileTab(mine);

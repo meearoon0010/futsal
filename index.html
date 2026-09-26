@@ -79,7 +79,7 @@
   .app{
     max-width:640px;
     margin:0 auto;
-    padding:24px 18px calc(96px + env(safe-area-inset-bottom, 0px));
+    padding:16px 18px calc(118px + env(safe-area-inset-bottom, 0px));
     position:relative;
     z-index:1;
   }
@@ -154,13 +154,30 @@
 
   /* ---------- Top bar (logged-in app): logo/name left, refresh right ---------- */
   .top-bar{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    z-index:45;
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:14px;
-    margin-bottom:20px;
-    padding-bottom:14px;
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 18px 14px;
+    background:rgba(13,36,22,0.96);
+    -webkit-backdrop-filter:blur(14px);
+    backdrop-filter:blur(14px);
     border-bottom:1px solid var(--line);
+    box-shadow:0 6px 18px rgba(0,0,0,0.25);
+  }
+  .top-bar-inner-wrap{
+    max-width:640px;
+    margin:0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    gap:14px;
   }
   .top-bar .brand{
     display:flex;
@@ -179,6 +196,9 @@
     color:var(--chalk);
   }
   .top-bar .refresh-btn{flex-shrink:0;}
+  .top-bar-spacer{
+    height:calc(64px + env(safe-area-inset-top, 0px));
+  }
 
   /* ---------- Scoreboard match info (styled as a torn matchday ticket) ---------- */
   .scoreboard{
@@ -1139,6 +1159,7 @@
   .logout-btn:hover{border-color:var(--red);color:var(--red);}
 
   /* ---------- Tab navigation: fixed bottom bar, mobile + desktop ---------- */
+  /* Sized ~30% larger than a standard compact bottom nav for easier tapping */
   .tab-bar{
     position:fixed;
     left:0;
@@ -1150,13 +1171,13 @@
     backdrop-filter:blur(14px);
     border-top:1px solid var(--line);
     box-shadow:0 -6px 24px rgba(0,0,0,0.35);
-    padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
   }
   .tab-bar-inner{
     display:flex;
     max-width:640px;
     margin:0 auto;
-    gap:2px;
+    gap:3px;
   }
   .tab-btn{
     flex:1 1 0;
@@ -1164,21 +1185,21 @@
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    gap:2px;
+    gap:3px;
     min-width:0;
     background:none;
     border:none;
     color:var(--muted);
     font-family:'Inter',sans-serif;
-    font-size:10.5px;
+    font-size:13.5px;
     font-weight:700;
     letter-spacing:0.2px;
-    padding:7px 2px 6px;
+    padding:9px 3px 8px;
     cursor:pointer;
-    border-radius:11px;
+    border-radius:14px;
     transition:background .12s ease, color .12s ease;
   }
-  .tab-btn .tab-icon{display:block;width:21px;height:21px;line-height:0;}
+  .tab-btn .tab-icon{display:block;width:27px;height:27px;line-height:0;}
   .tab-btn .tab-icon svg{width:100%;height:100%;display:block;}
   .tab-btn .tab-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
   .tab-btn:hover{color:var(--chalk);background:rgba(242,245,238,0.06);}
@@ -1188,9 +1209,9 @@
   @keyframes tab-fade-in{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 
   @media (min-width:720px){
-    .tab-bar{padding-left:16px;padding-right:16px;}
-    .tab-btn{flex-direction:row;gap:7px;padding:11px 14px;font-size:12px;}
-    .tab-btn .tab-icon{width:19px;height:19px;}
+    .tab-bar{padding-left:20px;padding-right:20px;}
+    .tab-btn{flex-direction:row;gap:9px;padding:14px 18px;font-size:15.5px;}
+    .tab-btn .tab-icon{width:25px;height:25px;}
   }
 
   /* ---------- Profile tab ---------- */
@@ -1251,36 +1272,79 @@
   }
   .profile-menu-item:last-of-type{border-bottom:none;}
   .profile-menu-item:hover{background:var(--bg-panel-2);}
-  .profile-menu-item.open{background:var(--bg-panel-2);color:var(--amber);}
   .profile-menu-chevron{
     color:var(--muted);
     font-size:16px;
     line-height:1;
-    transition:transform .15s ease, color .15s ease;
     flex-shrink:0;
   }
-  .profile-menu-item.open .profile-menu-chevron{transform:rotate(90deg);color:var(--amber);}
-  .profile-panel{
-    padding:16px;
-    background:var(--bg-panel-2);
-    border-bottom:1px solid var(--line);
-  }
-  .profile-panel:last-child{border-bottom:none;}
-  .profile-panel form{margin:0;}
-  .profile-panel .auth-field:last-of-type{margin-bottom:14px;}
 
-  /* ---------- Account tab: Balance / Expenses as a stacked column ---------- */
+  /* ---------- Profile screens: full-screen overlay opened from the menu ---------- */
+  .profile-screen{
+    display:none;
+    flex-direction:column;
+    position:fixed;
+    inset:0;
+    z-index:110;
+    background:var(--bg-night);
+  }
+  .profile-screen.active{display:flex;}
+  .profile-screen-header{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:calc(16px + env(safe-area-inset-top, 0px)) 18px 16px;
+    border-bottom:1px solid var(--line);
+    background:var(--bg-panel);
+  }
+  .profile-screen-title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:20px;
+    letter-spacing:0.4px;
+    color:var(--chalk);
+  }
+  .profile-screen-close{
+    width:34px;
+    height:34px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    border-radius:50%;
+    background:var(--bg-panel-2);
+    color:var(--muted);
+    font-size:15px;
+    line-height:1;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .profile-screen-close:hover{color:var(--chalk);border-color:var(--amber);}
+  .profile-screen-body{
+    flex:1;
+    overflow-y:auto;
+    max-width:640px;
+    width:100%;
+    margin:0 auto;
+    padding:20px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ---------- Account tab: Balance / Expenses side by side ---------- */
   .account-menu{
     display:flex;
-    flex-direction:column;
+    flex-direction:row;
     gap:8px;
     margin-bottom:22px;
   }
   .account-menu-item{
-    width:100%;
+    flex:1 1 0;
+    min-width:0;
     display:flex;
     align-items:center;
-    gap:10px;
+    justify-content:center;
+    gap:8px;
     background:var(--bg-panel);
     border:1px solid var(--line);
     border-radius:11px;
@@ -1288,9 +1352,9 @@
     font-family:'Inter',sans-serif;
     font-size:14px;
     font-weight:700;
-    padding:13px 16px;
+    padding:13px 10px;
     cursor:pointer;
-    text-align:left;
+    text-align:center;
     transition:background .12s ease, color .12s ease, border-color .12s ease;
   }
   .account-menu-icon{width:19px;height:19px;flex-shrink:0;display:block;}
@@ -1526,19 +1590,22 @@
 <div class="app" id="appWrap" style="display:none">
 
   <div class="top-bar">
-    <div class="brand">
-      <div class="wordmark">
-        <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
-          <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
-          <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
-          <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
-                stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-        </svg>
-        <h1>FUTSAL</h1>
+    <div class="top-bar-inner-wrap">
+      <div class="brand">
+        <div class="wordmark">
+          <svg class="crest" viewBox="0 0 44 44" aria-hidden="true" focusable="false">
+            <circle cx="22" cy="22" r="19" fill="#f2f5ee" stroke="#173420" stroke-width="1.2"/>
+            <polygon points="22,13 28.4,17.7 25.9,25.1 18.1,25.1 15.6,17.7" fill="#16281c"/>
+            <path d="M22 13 L22 6.3 M28.4 17.7 L35.3 15.4 M25.9 25.1 L29.3 31.6 M18.1 25.1 L14.7 31.6 M15.6 17.7 L8.7 15.4"
+                  stroke="#16281c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+          </svg>
+          <h1>FUTSAL</h1>
+        </div>
       </div>
+      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
     </div>
-    <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
   </div>
+  <div class="top-bar-spacer"></div>
 
   <nav class="tab-bar" id="tabBar" aria-label="Main">
     <div class="tab-bar-inner">
@@ -1606,7 +1673,6 @@
           </div>
         </div>
         <button class="reset-btn admin-only" style="margin:14px 0" onclick="resetPlayers()">Reset all attendance</button>
-        <button class="balance-pdf-btn" onclick="downloadPDF()">Download attendance PDF</button>
       </div>
     </div>
     <div class="empty-note" id="teamsEmptyNote" style="display:none">No one's confirmed for this match yet.</div>
@@ -1676,6 +1742,21 @@
       <div class="auth-msg" id="statsSubmitMsg"></div>
       <span class="note admin-only" style="display:block;margin-top:10px;">Submitting files this score and result into every grouped player's own record (see their Profile → Statistics) and resets attendance for the next game.</span>
     </div>
+
+    <div class="section-title" style="cursor:default">
+      <span>Last Match Scorecard</span>
+    </div>
+    <div class="section-body">
+      <div class="team-scorecard" id="lastMatchScorecard">
+        <div class="team-scorecard-row">
+          <span class="team-scorecard-name">TEAM A</span>
+          <span class="team-scorecard-score" id="lastMatchScoreDisplay">–</span>
+          <span class="team-scorecard-name">TEAM B</span>
+        </div>
+        <div class="team-scorecard-meta" id="lastMatchScorecardMeta"></div>
+      </div>
+      <div class="empty-note" id="lastMatchScorecardEmpty" style="display:none">No previous match submitted yet.</div>
+    </div>
   </div>
 
   <div class="tab-page" data-tab-page="account" id="tabPage-account">
@@ -1701,7 +1782,6 @@
           <button id="bulkSubtractBtn" class="subtract" onclick="bulkAdjustBalance('subtract')">− Subtract all</button>
         </div>
         <div class="balance-list" id="balanceList"></div>
-        <button class="balance-pdf-btn" onclick="downloadBalancePDF()">Download balance PDF</button>
       </div>
     </div>
 
@@ -1716,7 +1796,6 @@
           <button onclick="addExpense()">Add</button>
         </div>
         <div class="expense-list" id="expenseList"></div>
-        <button class="balance-pdf-btn" onclick="downloadExpensesPDF()">Download expenses PDF</button>
       </div>
     </div>
   </div>
@@ -1730,68 +1809,22 @@
       <div class="profile-signed-in">Signed in as <strong id="profileWhoAmI"></strong></div>
 
       <div class="profile-menu">
-        <button type="button" class="profile-menu-item" data-panel="name" onclick="toggleProfilePanel('name')">
+        <button type="button" class="profile-menu-item" data-panel="name" onclick="openProfileScreen('name')">
           <span>Change display name</span>
           <span class="profile-menu-chevron">›</span>
         </button>
-        <div class="profile-panel" id="profilePanel-name" style="display:none">
-          <form id="changeNameForm" onsubmit="handleChangeName(event)">
-            <div class="auth-field">
-              <label for="profileNameInput">Display name</label>
-              <input type="text" id="profileNameInput" required>
-            </div>
-            <button type="submit" class="auth-submit" id="changeNameBtn" style="width:auto;padding:10px 18px;">Save name</button>
-          </form>
-          <div class="auth-msg" id="nameMsg"></div>
-        </div>
-
-        <button type="button" class="profile-menu-item" data-panel="password" onclick="toggleProfilePanel('password')">
+        <button type="button" class="profile-menu-item" data-panel="password" onclick="openProfileScreen('password')">
           <span>Change password</span>
           <span class="profile-menu-chevron">›</span>
         </button>
-        <div class="profile-panel" id="profilePanel-password" style="display:none">
-          <form id="changePasswordForm" onsubmit="handleChangePassword(event)">
-            <div class="auth-field">
-              <label for="profileNewPassword">New password</label>
-              <div class="password-field">
-                <input type="password" id="profileNewPassword" autocomplete="new-password" minlength="6" required>
-                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              </div>
-            </div>
-            <div class="auth-field">
-              <label for="profileNewPasswordConfirm">Confirm new password</label>
-              <div class="password-field">
-                <input type="password" id="profileNewPasswordConfirm" autocomplete="new-password" minlength="6" required>
-                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
-              </div>
-            </div>
-            <button type="submit" class="auth-submit" id="changePasswordBtn" style="width:auto;padding:10px 18px;">Update password</button>
-          </form>
-          <div class="auth-msg" id="passwordMsg"></div>
-        </div>
-
-        <button type="button" class="profile-menu-item" data-panel="balance" onclick="toggleProfilePanel('balance')">
+        <button type="button" class="profile-menu-item" data-panel="balance" onclick="openProfileScreen('balance')">
           <span>Balance</span>
           <span class="profile-menu-chevron">›</span>
         </button>
-        <div class="profile-panel" id="profilePanel-balance" style="display:none">
-          <div class="balance-top" style="margin-bottom:12px;">
-            <span class="balance-name">Current balance</span>
-            <span class="balance-amount" id="profileBalanceAmount"></span>
-          </div>
-          <div id="profileHistoryList"></div>
-        </div>
-
-        <button type="button" class="profile-menu-item" data-panel="status" onclick="toggleProfilePanel('status')">
+        <button type="button" class="profile-menu-item" data-panel="status" onclick="openProfileScreen('status')">
           <span>Status</span>
           <span class="profile-menu-chevron">›</span>
         </button>
-        <div class="profile-panel" id="profilePanel-status" style="display:none">
-          <div id="profileStatusBlock"></div>
-          <div class="profile-heading" style="font-size:14px;margin:16px 0 8px;">Match history</div>
-          <div class="goal-list" id="profileMatchHistory"></div>
-          <div class="empty-note" id="profileMatchHistoryEmpty" style="display:none">No submitted matches yet.</div>
-        </div>
       </div>
 
       <div class="profile-block" style="border-top:none;padding-top:0;">
@@ -1806,6 +1839,77 @@
         <button class="logout-btn" style="padding:10px 18px;font-size:13px;" onclick="handleLogout()">Log out</button>
       </div>
 
+    </div>
+  </div>
+
+  <div class="profile-screen" id="profileScreen-name">
+    <div class="profile-screen-header">
+      <span class="profile-screen-title">Change display name</span>
+      <button type="button" class="profile-screen-close" onclick="closeProfileScreen()" aria-label="Close">✕</button>
+    </div>
+    <div class="profile-screen-body">
+      <form id="changeNameForm" onsubmit="handleChangeName(event)">
+        <div class="auth-field">
+          <label for="profileNameInput">Display name</label>
+          <input type="text" id="profileNameInput" required>
+        </div>
+        <button type="submit" class="auth-submit" id="changeNameBtn" style="width:auto;padding:10px 18px;">Save name</button>
+      </form>
+      <div class="auth-msg" id="nameMsg"></div>
+    </div>
+  </div>
+
+  <div class="profile-screen" id="profileScreen-password">
+    <div class="profile-screen-header">
+      <span class="profile-screen-title">Change password</span>
+      <button type="button" class="profile-screen-close" onclick="closeProfileScreen()" aria-label="Close">✕</button>
+    </div>
+    <div class="profile-screen-body">
+      <form id="changePasswordForm" onsubmit="handleChangePassword(event)">
+        <div class="auth-field">
+          <label for="profileNewPassword">New password</label>
+          <div class="password-field">
+            <input type="password" id="profileNewPassword" autocomplete="new-password" minlength="6" required>
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPassword', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+        <div class="auth-field">
+          <label for="profileNewPasswordConfirm">Confirm new password</label>
+          <div class="password-field">
+            <input type="password" id="profileNewPasswordConfirm" autocomplete="new-password" minlength="6" required>
+            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('profileNewPasswordConfirm', this)" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+        <button type="submit" class="auth-submit" id="changePasswordBtn" style="width:auto;padding:10px 18px;">Update password</button>
+      </form>
+      <div class="auth-msg" id="passwordMsg"></div>
+    </div>
+  </div>
+
+  <div class="profile-screen" id="profileScreen-balance">
+    <div class="profile-screen-header">
+      <span class="profile-screen-title">Balance</span>
+      <button type="button" class="profile-screen-close" onclick="closeProfileScreen()" aria-label="Close">✕</button>
+    </div>
+    <div class="profile-screen-body">
+      <div class="balance-top" style="margin-bottom:12px;">
+        <span class="balance-name">Current balance</span>
+        <span class="balance-amount" id="profileBalanceAmount"></span>
+      </div>
+      <div id="profileHistoryList"></div>
+    </div>
+  </div>
+
+  <div class="profile-screen" id="profileScreen-status">
+    <div class="profile-screen-header">
+      <span class="profile-screen-title">Status</span>
+      <button type="button" class="profile-screen-close" onclick="closeProfileScreen()" aria-label="Close">✕</button>
+    </div>
+    <div class="profile-screen-body">
+      <div id="profileStatusBlock"></div>
+      <div class="profile-heading" style="font-size:14px;margin:16px 0 8px;">Match history</div>
+      <div class="goal-list" id="profileMatchHistory"></div>
+      <div class="empty-note" id="profileMatchHistoryEmpty" style="display:none">No submitted matches yet.</div>
     </div>
   </div>
 
@@ -2138,7 +2242,7 @@ const ADMIN_EMAIL = 'whitewalkerofnorth@gmail.com';
 let isAdmin = false;
 
 /* ---------- Shared, realtime app state (Supabase) ---------- */
-let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null };
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null, last_match_venue: null, last_match_kickoff_time: null, last_match_date: null, last_match_goals_a: null, last_match_goals_b: null, last_match_result: null };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
@@ -2362,6 +2466,7 @@ function setStatus(msg){
 /* ---------- Top-level tab navigation ---------- */
 function switchTab(name){
   if(name === 'roster' && !isAdmin) name = 'home'; // roster is admin-only
+  document.querySelectorAll('.profile-screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.tab === name);
   });
@@ -2559,6 +2664,26 @@ function renderTeamScorecard(){
   const bInput = document.getElementById('goalsBInput');
   if(aInput && document.activeElement !== aInput) aInput.value = a || '';
   if(bInput && document.activeElement !== bInput) bInput.value = b || '';
+
+  renderLastMatchScorecard();
+}
+
+function renderLastMatchScorecard(){
+  const card = document.getElementById('lastMatchScorecard');
+  const emptyNote = document.getElementById('lastMatchScorecardEmpty');
+  const scoreDisplay = document.getElementById('lastMatchScoreDisplay');
+  const meta = document.getElementById('lastMatchScorecardMeta');
+  if(!card || !emptyNote || !scoreDisplay || !meta) return;
+  if(matchInfo.last_match_venue == null && matchInfo.last_match_goals_a == null){
+    card.style.display = 'none';
+    emptyNote.style.display = 'block';
+    return;
+  }
+  card.style.display = 'block';
+  emptyNote.style.display = 'none';
+  scoreDisplay.textContent = `${matchInfo.last_match_goals_a || 0} – ${matchInfo.last_match_goals_b || 0}`;
+  const metaParts = [matchInfo.last_match_venue || 'Venue not recorded', matchInfo.last_match_kickoff_time || matchInfo.last_match_date || ''].filter(Boolean);
+  meta.textContent = metaParts.join(' · ');
 }
 
 async function saveTeamScore(){
@@ -2621,8 +2746,17 @@ async function submitMatchStats(){
     return;
   }
 
-  // Clear the scorecard and reset attendance/groups for the next game.
-  const matchInfoUpdates = { goals_a: 0, goals_b: 0, last_result: null };
+  // Snapshot this match into "Last Match Scorecard", then clear the
+  // live scorecard and reset attendance/groups for the next game.
+  const matchInfoUpdates = {
+    goals_a: 0, goals_b: 0, last_result: null,
+    last_match_venue: matchInfo.venue,
+    last_match_kickoff_time: matchInfo.kickoff_time,
+    last_match_date: matchDate,
+    last_match_goals_a: goalsA,
+    last_match_goals_b: goalsB,
+    last_match_result: result
+  };
   Object.assign(matchInfo, matchInfoUpdates);
   players.forEach(p => { p.attend = null; p.group_name = null; });
   render();
@@ -2927,19 +3061,20 @@ function setProfileMsg(id, msg, type){
   el.className = 'auth-msg' + (type ? ' '+type : '');
 }
 
-function toggleProfilePanel(name){
-  const panel = document.getElementById('profilePanel-' + name);
-  if(!panel) return;
-  const opening = panel.style.display === 'none' || !panel.style.display;
-  document.querySelectorAll('.profile-panel').forEach(p => { p.style.display = 'none'; });
-  document.querySelectorAll('.profile-menu-item').forEach(b => b.classList.remove('open'));
-  if(opening){
-    panel.style.display = 'block';
-    const btn = document.querySelector(`.profile-menu-item[data-panel="${name}"]`);
-    if(btn) btn.classList.add('open');
-    const firstInput = panel.querySelector('input');
-    if(firstInput) setTimeout(() => firstInput.focus(), 60);
-  }
+function openProfileScreen(name){
+  document.querySelectorAll('.profile-screen').forEach(s => s.classList.remove('active'));
+  const screen = document.getElementById('profileScreen-' + name);
+  if(!screen) return;
+  screen.classList.add('active');
+  screen.scrollTop = 0;
+  const body = screen.querySelector('.profile-screen-body');
+  if(body) body.scrollTop = 0;
+  const firstInput = screen.querySelector('input');
+  if(firstInput) setTimeout(() => firstInput.focus(), 60);
+}
+
+function closeProfileScreen(){
+  document.querySelectorAll('.profile-screen').forEach(s => s.classList.remove('active'));
 }
 
 function renderProfileTab(mine){

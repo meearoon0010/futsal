@@ -163,7 +163,7 @@
     align-items:center;
     justify-content:space-between;
     gap:14px;
-    padding:calc(14px + env(safe-area-inset-top, 0px)) 18px 14px;
+    padding:calc(17px + env(safe-area-inset-top, 0px)) 18px 17px;
     background:rgba(13,36,22,0.96);
     -webkit-backdrop-filter:blur(14px);
     backdrop-filter:blur(14px);
@@ -171,7 +171,6 @@
     box-shadow:0 6px 18px rgba(0,0,0,0.25);
   }
   .top-bar-inner-wrap{
-    position:relative;
     max-width:640px;
     margin:0 auto;
     display:flex;
@@ -188,45 +187,43 @@
     flex-shrink:0;
   }
   .top-bar .wordmark{gap:8px;}
-  .top-bar .crest{width:26px;height:26px;}
+  .top-bar .crest{width:31px;height:31px;}
   .top-bar h1{
     font-family:'Bebas Neue',sans-serif;
-    font-size:26px;
+    font-size:31px;
     letter-spacing:0.5px;
     margin:0;
     line-height:0.85;
     color:var(--chalk);
   }
   .top-bar-spacer{
-    height:calc(64px + env(safe-area-inset-top, 0px));
+    height:calc(77px + env(safe-area-inset-top, 0px));
   }
 
-  /* ---------- LED scrolling slogan — floats dead-center in the header,
-     borderless/transparent so it reads as light on the header itself
-     rather than a boxed panel. Text + font color are admin-editable
-     (see editLedSlogan()). ---------- */
+  /* ---------- LED scrolling slogan — fills the right side of the header
+     (where the reload button used to sit), borderless/transparent so it
+     reads as light on the header itself rather than a boxed panel.
+     Text + font color are admin-editable (see editLedSlogan()). ---------- */
   .led-ticker{
-    position:absolute;
-    left:50%;
-    top:50%;
-    transform:translate(-50%,-50%);
-    width:min(56%, 230px);
+    position:relative;
+    flex:1 1 auto;
+    min-width:0;
     overflow:hidden;
-    height:24px;
+    height:29px;
     background:transparent;
     border:none;
     box-shadow:none;
     display:flex;
     align-items:center;
-    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
-    mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 6px), transparent 100%);
+    mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 6px), transparent 100%);
   }
   body.role-admin .led-ticker{ cursor:pointer; }
   .led-ticker-edit-hint{
     position:absolute;
-    top:-2px;
+    top:-3px;
     right:-2px;
-    font-size:10px;
+    font-size:12px;
     color:var(--muted);
     background:rgba(0,0,0,0.5);
     border-radius:3px;
@@ -245,11 +242,11 @@
   }
   .led-ticker-track span{
     font-family:'Bebas Neue',sans-serif;
-    font-size:13px;
-    letter-spacing:4px;
+    font-size:16px;
+    letter-spacing:5px;
     color:var(--amber);
     text-shadow:0 0 4px rgba(240,165,49,0.85), 0 0 10px rgba(240,165,49,0.45);
-    padding:0 16px;
+    padding:0 19px;
     white-space:nowrap;
   }
   @keyframes led-scroll{

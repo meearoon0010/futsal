@@ -1797,18 +1797,11 @@
     </div>
 
     <div class="section-title" style="cursor:default">
-      <span>Last Match Scorecard</span>
+      <span>Last 5 Matches</span>
     </div>
     <div class="section-body">
-      <div class="team-scorecard" id="lastMatchScorecard">
-        <div class="team-scorecard-row">
-          <span class="team-scorecard-name">TEAM A</span>
-          <span class="team-scorecard-score" id="lastMatchScoreDisplay">–</span>
-          <span class="team-scorecard-name">TEAM B</span>
-        </div>
-        <div class="team-scorecard-meta" id="lastMatchScorecardMeta"></div>
-      </div>
-      <div class="empty-note" id="lastMatchScorecardEmpty" style="display:none">No previous match submitted yet.</div>
+      <div id="lastMatchesList"></div>
+      <div class="empty-note" id="lastMatchesEmpty" style="display:none">No previous match submitted yet.</div>
     </div>
   </div>
 
@@ -2328,6 +2321,7 @@ let players = []; // rows from public.players: {id, user_id, display_name, atten
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
 let matchHistory = []; // rows from public.match_history: {id, player_id, match_date, venue, group_name, result, goals}
+let matchScorecards = []; // last 5 rows from public.match_scorecards: {id, match_date, venue, kickoff_time, goals_a, goals_b, result} — newest first
 let expandedHistory = new Set(); // player ids whose history is expanded (admin view, in the Balance table)
 const LOW_BALANCE_THRESHOLD = 200;
 let myUserId = null;
@@ -2419,18 +2413,20 @@ async function ensureMyPlayerRow(displayName){
 }
 
 async function loadAllData(){
-  const [matchResult, playersResult, expensesResult, txResult, historyResult] = await Promise.all([
+  const [matchResult, playersResult, expensesResult, txResult, historyResult, scorecardsResult] = await Promise.all([
     sbClient.from('match_info').select('*').eq('id', 1).single(),
     sbClient.from('players').select('*').order('created_at', { ascending: true }),
     sbClient.from('expenses').select('*').order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
     sbClient.from('balance_transactions').select('*').order('created_at', { ascending: false }),
-    sbClient.from('match_history').select('*').order('match_date', { ascending: false }).order('created_at', { ascending: false })
+    sbClient.from('match_history').select('*').order('match_date', { ascending: false }).order('created_at', { ascending: false }),
+    sbClient.from('match_scorecards').select('*').order('created_at', { ascending: false }).limit(5)
   ]);
   if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
   if(!playersResult.error) players = playersResult.data || [];
   if(!expensesResult.error) expenses = expensesResult.data || [];
   if(!txResult.error) balanceTransactions = txResult.data || [];
   if(!historyResult.error) matchHistory = historyResult.data || [];
+  if(!scorecardsResult.error) matchScorecards = scorecardsResult.data || [];
   const mine = players.find(p => p.user_id === myUserId);
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
@@ -2535,6 +2531,7 @@ function subscribeRealtime(){
     .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadAllData())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'balance_transactions' }, () => loadAllData())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'match_history' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_scorecards' }, () => loadAllData())
     .subscribe();
 }
 
@@ -2746,25 +2743,46 @@ function renderTeamScorecard(){
   if(aInput && document.activeElement !== aInput) aInput.value = a || '';
   if(bInput && document.activeElement !== bInput) bInput.value = b || '';
 
-  renderLastMatchScorecard();
+  renderLastMatches();
 }
 
-function renderLastMatchScorecard(){
-  const card = document.getElementById('lastMatchScorecard');
-  const emptyNote = document.getElementById('lastMatchScorecardEmpty');
-  const scoreDisplay = document.getElementById('lastMatchScoreDisplay');
-  const meta = document.getElementById('lastMatchScorecardMeta');
-  if(!card || !emptyNote || !scoreDisplay || !meta) return;
-  if(matchInfo.last_match_venue == null && matchInfo.last_match_goals_a == null){
-    card.style.display = 'none';
+/* Shows the 5 most recently submitted match scorecards (public.match_scorecards),
+   newest first. The list itself is already trimmed to 5 server-side —
+   see addMatchScorecard() — this just renders whatever's in matchScorecards. */
+function renderLastMatches(){
+  const list = document.getElementById('lastMatchesList');
+  const emptyNote = document.getElementById('lastMatchesEmpty');
+  if(!list || !emptyNote) return;
+  list.innerHTML = '';
+  if(matchScorecards.length === 0){
     emptyNote.style.display = 'block';
     return;
   }
-  card.style.display = 'block';
   emptyNote.style.display = 'none';
-  scoreDisplay.textContent = `${matchInfo.last_match_goals_a || 0} – ${matchInfo.last_match_goals_b || 0}`;
-  const metaParts = [matchInfo.last_match_venue || 'Venue not recorded', matchInfo.last_match_kickoff_time || matchInfo.last_match_date || ''].filter(Boolean);
-  meta.textContent = metaParts.join(' · ');
+  matchScorecards.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'team-scorecard';
+    card.style.marginBottom = '10px';
+    const row = document.createElement('div');
+    row.className = 'team-scorecard-row';
+    const nameA = document.createElement('span');
+    nameA.className = 'team-scorecard-name';
+    nameA.textContent = 'TEAM A';
+    const score = document.createElement('span');
+    score.className = 'team-scorecard-score';
+    score.textContent = `${m.goals_a || 0} – ${m.goals_b || 0}`;
+    const nameB = document.createElement('span');
+    nameB.className = 'team-scorecard-name';
+    nameB.textContent = 'TEAM B';
+    row.appendChild(nameA); row.appendChild(score); row.appendChild(nameB);
+    const meta = document.createElement('div');
+    meta.className = 'team-scorecard-meta';
+    const metaParts = [m.venue || 'Venue not recorded', m.kickoff_time || m.match_date || ''].filter(Boolean);
+    meta.textContent = metaParts.join(' · ');
+    card.appendChild(row);
+    card.appendChild(meta);
+    list.appendChild(card);
+  });
 }
 
 async function saveTeamScore(){
@@ -2839,16 +2857,12 @@ async function submitMatchStats(){
     return;
   }
 
-  // Snapshot this match into "Last Match Scorecard", then clear the
-  // live scorecard and reset attendance/groups for the next game.
+  // Snapshot this match into the "Last 5 Matches" list (public.match_scorecards),
+  // then clear the live scorecard and reset attendance/groups for the next game.
+  await addMatchScorecard({ matchDate, venue: matchInfo.venue, kickoffTime: matchInfo.kickoff_time, goalsA, goalsB, result });
+
   const matchInfoUpdates = {
-    goals_a: 0, goals_b: 0, last_result: null,
-    last_match_venue: matchInfo.venue,
-    last_match_kickoff_time: matchInfo.kickoff_time,
-    last_match_date: matchDate,
-    last_match_goals_a: goalsA,
-    last_match_goals_b: goalsB,
-    last_match_result: result
+    goals_a: 0, goals_b: 0, last_result: null
   };
   // Season tally: only bump it here if it wasn't already bumped by the
   // record buttons above (their click already updates it immediately).
@@ -2868,6 +2882,29 @@ async function submitMatchStats(){
   if(btn){ btn.disabled = false; btn.textContent = 'Submit match result'; }
   setProfileMsg('statsSubmitMsg', `Submitted — filed into ${rows.length} player record${rows.length === 1 ? '' : 's'}. Season record and attendance updated for the next game.`, 'success');
 }
+
+/* Adds one row to public.match_scorecards for the match just submitted,
+   then keeps only the 5 most recent rows — deleting anything older so
+   the "Last 5 Matches" list on the Stats tab always trims the oldest
+   scorecard off automatically once a 6th match comes in. */
+async function addMatchScorecard({ matchDate, venue, kickoffTime, goalsA, goalsB, result }){
+  const { data, error } = await sbClient.from('match_scorecards').insert({
+    match_date: matchDate, venue, kickoff_time: kickoffTime,
+    goals_a: goalsA, goals_b: goalsB, result
+  }).select().single();
+  if(!error && data){
+    matchScorecards.unshift(data);
+  }
+  const { data: allRows } = await sbClient.from('match_scorecards')
+    .select('id, created_at').order('created_at', { ascending: false });
+  if(allRows && allRows.length > 5){
+    const staleIds = allRows.slice(5).map(r => r.id);
+    await sbClient.from('match_scorecards').delete().in('id', staleIds);
+    matchScorecards = matchScorecards.filter(m => !staleIds.includes(m.id));
+  }
+  matchScorecards = matchScorecards.slice(0, 5);
+}
+
 
 /* ---------- Expenses (admin adds/removes; everyone can see them) ---------- */
 async function addExpense(){

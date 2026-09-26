@@ -171,6 +171,7 @@
     box-shadow:0 6px 18px rgba(0,0,0,0.25);
   }
   .top-bar-inner-wrap{
+    position:relative;
     max-width:640px;
     margin:0 auto;
     display:flex;
@@ -196,28 +197,48 @@
     line-height:0.85;
     color:var(--chalk);
   }
-  .top-bar .refresh-btn{flex-shrink:0;}
   .top-bar-spacer{
     height:calc(64px + env(safe-area-inset-top, 0px));
   }
 
-  /* ---------- LED scrolling slogan — sits between the brand and the
-     reload button, like a sideline LED board built into the header ---------- */
+  /* ---------- LED scrolling slogan — floats dead-center in the header,
+     borderless/transparent so it reads as light on the header itself
+     rather than a boxed panel. Text + font color are admin-editable
+     (see editLedSlogan()). ---------- */
   .led-ticker{
-    flex:1 1 auto;
-    min-width:0;
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    width:min(56%, 230px);
     overflow:hidden;
-    height:26px;
-    background:#0a1c10;
-    border:1px solid var(--line);
-    border-radius:4px;
-    box-shadow:inset 0 0 8px rgba(0,0,0,0.6);
+    height:24px;
+    background:transparent;
+    border:none;
+    box-shadow:none;
     display:flex;
     align-items:center;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image:linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  }
+  body.role-admin .led-ticker{ cursor:pointer; }
+  .led-ticker-edit-hint{
+    position:absolute;
+    top:-2px;
+    right:-2px;
+    font-size:10px;
+    color:var(--muted);
+    background:rgba(0,0,0,0.5);
+    border-radius:3px;
+    padding:0 3px;
+    pointer-events:none;
+    line-height:1.4;
+    z-index:1;
   }
   .led-ticker-track{
     display:flex;
     flex-wrap:nowrap;
+    align-items:center;
     width:max-content;
     animation:led-scroll 12s linear infinite;
     will-change:transform;
@@ -1648,13 +1669,10 @@
           <h1>FUTSAL</h1>
         </div>
       </div>
-      <div class="led-ticker" aria-hidden="true">
-        <div class="led-ticker-track">
-          <span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span>
-          <span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span><span>PLAY SWEAT REPEAT</span>
-        </div>
+      <div class="led-ticker" id="ledTicker" onclick="editLedSlogan()" title="Tap to edit the LED slogan">
+        <div class="led-ticker-track" id="ledTickerTrack"></div>
+        <span class="led-ticker-edit-hint admin-only" aria-hidden="true">✎</span>
       </div>
-      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Reload the latest data">⟳</button>
     </div>
   </div>
   <div class="top-bar-spacer"></div>
@@ -2316,7 +2334,7 @@ let isAdmin = false;
 let scoreEnteredThisMatch = false; // true once the admin has saved a score this match, so Submit can auto-derive the result if no quick-result button was clicked
 
 /* ---------- Shared, realtime app state (Supabase) ---------- */
-let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null, last_match_venue: null, last_match_kickoff_time: null, last_match_date: null, last_match_goals_a: null, last_match_goals_b: null, last_match_result: null };
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null, led_slogan: 'PLAY SWEAT REPEAT', led_slogan_color: '#f0a531' };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
@@ -2590,6 +2608,63 @@ function toggleSection(id){
   body.style.display = collapsing ? 'none' : '';
   if(toggle) toggle.textContent = collapsing ? '▸' : '▾';
 }
+
+/* ---------- Header LED slogan (admin-editable text + font color) ---------- */
+let _ledSloganCache = null; // "text|color" — skip rebuilding the track (and restarting its scroll) unless this actually changed
+function renderLedTicker(){
+  const track = document.getElementById('ledTickerTrack');
+  if(!track) return;
+  const text = (matchInfo.led_slogan || 'PLAY SWEAT REPEAT').toUpperCase();
+  const color = matchInfo.led_slogan_color || '#f0a531';
+  const cacheKey = text + '|' + color;
+  if(_ledSloganCache === cacheKey) return;
+  _ledSloganCache = cacheKey;
+  track.innerHTML = '';
+  for(let i = 0; i < 12; i++){
+    const span = document.createElement('span');
+    span.textContent = text;
+    span.style.color = color;
+    span.style.textShadow = `0 0 4px ${color}99, 0 0 10px ${color}66`;
+    track.appendChild(span);
+  }
+}
+
+function editLedSlogan(){
+  if(!isAdmin) return;
+  const currentText = matchInfo.led_slogan || 'PLAY SWEAT REPEAT';
+  const newText = window.prompt('Text for the scrolling LED slogan', currentText);
+  if(newText === null) return; // cancelled
+  const trimmed = newText.trim();
+  if(!trimmed){ setStatus('Slogan cannot be empty'); return; }
+
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  colorInput.value = matchInfo.led_slogan_color || '#f0a531';
+  colorInput.style.position = 'fixed';
+  colorInput.style.top = '-100px';
+  colorInput.style.opacity = '0';
+  document.body.appendChild(colorInput);
+  let saved = false;
+  const finish = () => {
+    if(saved) return;
+    saved = true;
+    if(colorInput.parentNode) document.body.removeChild(colorInput);
+    saveLedSlogan(trimmed, colorInput.value);
+  };
+  colorInput.addEventListener('change', finish);
+  // Some browsers don't fire 'change' if the color picker is dismissed without a pick — fall back after it loses focus.
+  colorInput.addEventListener('blur', () => setTimeout(finish, 200));
+  colorInput.click();
+}
+
+async function saveLedSlogan(text, color){
+  matchInfo.led_slogan = text;
+  matchInfo.led_slogan_color = color;
+  render();
+  const { error } = await sbClient.from('match_info').update({ led_slogan: text, led_slogan_color: color }).eq('id', 1);
+  setStatus(error ? 'Could not save slogan — try again' : 'LED slogan updated');
+}
+
 
 /* ---------- Editable match info (admin only) ---------- */
 function startEdit(field){
@@ -3341,6 +3416,7 @@ function render(){
   document.getElementById('venueDisplay').textContent = matchInfo.venue;
   document.getElementById('timeDisplay').textContent = matchInfo.kickoff_time;
   renderJoinCard();
+  renderLedTicker();
 
   const aWins = matchInfo.a_wins || 0;
   const bWins = matchInfo.b_wins || 0;

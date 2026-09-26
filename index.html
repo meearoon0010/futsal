@@ -1401,6 +1401,16 @@
     flex-direction:row;
     gap:8px;
     margin-bottom:22px;
+    position:sticky;
+    top:calc(77px + env(safe-area-inset-top, 0px));
+    z-index:5;
+    background:var(--bg-night);
+    padding:10px 0 8px;
+    margin-left:-18px;
+    margin-right:-18px;
+    padding-left:18px;
+    padding-right:18px;
+    box-shadow:0 8px 12px -6px rgba(0,0,0,0.35);
   }
   .account-menu-item{
     flex:1 1 0;

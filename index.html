@@ -214,9 +214,7 @@
     justify-content:space-between;
     gap:14px;
     padding:calc(19px + env(safe-area-inset-top, 0px)) 18px 19px;
-    background:rgba(13,36,22,0.96);
-    -webkit-backdrop-filter:blur(14px);
-    backdrop-filter:blur(14px);
+    background:rgba(13,36,22,0.985);
     border-bottom:1px solid var(--line);
     box-shadow:0 6px 18px rgba(0,0,0,0.25);
   }
@@ -1330,9 +1328,7 @@
     right:0;
     bottom:0;
     z-index:40;
-    background:rgba(13,36,22,0.96);
-    -webkit-backdrop-filter:blur(14px);
-    backdrop-filter:blur(14px);
+    background:rgba(13,36,22,0.985);
     border-top:1px solid var(--line);
     box-shadow:0 -6px 24px rgba(0,0,0,0.35);
     padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
@@ -2533,6 +2529,11 @@ async function showApp(user){
   document.getElementById('authWrap').style.display = 'none';
   document.getElementById('resetWrap').style.display = 'none';
   document.getElementById('appWrap').style.display = 'block';
+  // Start the LED ticker scrolling immediately with whatever's already in
+  // memory (defaults, or the last-known value on a reconnect) instead of
+  // waiting for the match_info fetch below — otherwise it sits blank for
+  // however long that network round-trip takes, which reads as slow.
+  renderLedTicker();
   const email = (user?.email || '').toLowerCase();
   isAdmin = email === ADMIN_EMAIL;
   myUserId = user.id;
@@ -2717,15 +2718,27 @@ function dismissRenewPrompt(){
   // updates this player's balance (see setBalance / toggleRenewReminder).
 }
 
+// A single admin action often touches several tables at once (e.g.
+// submitting a match report writes to match_info, players, match_history,
+// AND match_scorecards). Without debouncing, each of those fires its own
+// full reload — 6 parallel queries plus a full re-render, several times
+// in a row for one action. Coalesce any burst of table-change events
+// within a short window into a single reload instead.
+let _reloadDebounceTimer = null;
+function scheduleReload(){
+  clearTimeout(_reloadDebounceTimer);
+  _reloadDebounceTimer = setTimeout(() => { loadAllData(); }, 400);
+}
+
 function subscribeRealtime(){
   if(realtimeChannel) return;
   realtimeChannel = sbClient.channel('futsal-live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => loadAllData())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, () => loadAllData())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => loadAllData())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'balance_transactions' }, () => loadAllData())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_history' }, () => loadAllData())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_scorecards' }, () => loadAllData())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_info' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'balance_transactions' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_history' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'match_scorecards' }, scheduleReload)
     .subscribe();
 }
 
@@ -2835,18 +2848,35 @@ async function saveLedSloganFromModal(){
 
   const btn = document.getElementById('ledEditSaveBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  await saveLedSlogan(text, color, speed);
+  const { error } = await saveLedSlogan(text, color, speed);
   if(btn){ btn.disabled = false; btn.textContent = 'Save'; }
+  if(error){
+    // Keep the modal open and show exactly what went wrong, instead of
+    // closing as if it worked — a save that only changes things on screen
+    // without confirming the database write is what caused this to look
+    // fine "for a while" and then quietly revert on the next reload.
+    setProfileMsg('ledEditMsg', 'Could not save: ' + (error.message || 'unknown error') + '. Make sure the latest supabase-setup.sql has been run.', 'error');
+    return;
+  }
   closeLedEditModal();
 }
 
 async function saveLedSlogan(text, color, speed){
+  const previous = { led_slogan: matchInfo.led_slogan, led_slogan_color: matchInfo.led_slogan_color, led_slogan_speed: matchInfo.led_slogan_speed };
   matchInfo.led_slogan = text;
   matchInfo.led_slogan_color = color;
   matchInfo.led_slogan_speed = speed;
   render();
   const { error } = await sbClient.from('match_info').update({ led_slogan: text, led_slogan_color: color, led_slogan_speed: speed }).eq('id', 1);
-  setStatus(error ? 'Could not save slogan — try again' : 'LED slogan updated');
+  if(error){
+    // The database write didn't actually take — roll the on-screen value
+    // back rather than leaving something displayed that isn't really saved.
+    Object.assign(matchInfo, previous);
+    render();
+  } else {
+    setStatus('LED slogan updated');
+  }
+  return { error };
 }
 
 

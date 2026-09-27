@@ -2477,7 +2477,7 @@ let isAdmin = false;
 let scoreEnteredThisMatch = false; // true once the admin has saved a score this match, so Submit can auto-derive the result if no quick-result button was clicked
 
 /* ---------- Shared, realtime app state (Supabase) ---------- */
-let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null, led_slogan: 'PLAY SWEAT REPEAT', led_slogan_color: '#f0a531' };
+let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', next_venue: '', next_kickoff_time: '', a_wins: 0, b_wins: 0, draws: 0, goals_a: 0, goals_b: 0, last_result: null, led_slogan: 'PLAY SWEAT REPEAT', led_slogan_color: '#f0a531', led_slogan_speed: 12 };
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
@@ -2754,21 +2754,28 @@ function toggleSection(id){
 
 /* ---------- Header LED slogan (admin-editable text + font color) ---------- */
 let _ledSloganCache = null; // "text|color" — skip rebuilding the track (and restarting its scroll) unless this actually changed
+let _ledSpeedCache = null;
 function renderLedTicker(){
   const track = document.getElementById('ledTickerTrack');
   if(!track) return;
   const text = (matchInfo.led_slogan || 'PLAY SWEAT REPEAT').toUpperCase();
   const color = matchInfo.led_slogan_color || '#f0a531';
+  const speed = Number(matchInfo.led_slogan_speed) || 12;
   const cacheKey = text + '|' + color;
-  if(_ledSloganCache === cacheKey) return;
-  _ledSloganCache = cacheKey;
-  track.innerHTML = '';
-  for(let i = 0; i < 12; i++){
-    const span = document.createElement('span');
-    span.textContent = text;
-    span.style.color = color;
-    span.style.textShadow = `0 0 4px ${color}99, 0 0 10px ${color}66`;
-    track.appendChild(span);
+  if(_ledSloganCache !== cacheKey){
+    _ledSloganCache = cacheKey;
+    track.innerHTML = '';
+    for(let i = 0; i < 12; i++){
+      const span = document.createElement('span');
+      span.textContent = text;
+      span.style.color = color;
+      span.style.textShadow = `0 0 4px ${color}99, 0 0 10px ${color}66`;
+      track.appendChild(span);
+    }
+  }
+  if(_ledSpeedCache !== speed){
+    _ledSpeedCache = speed;
+    track.style.animationDuration = speed + 's';
   }
 }
 
@@ -2796,7 +2803,13 @@ function editLedSlogan(){
     if(newText === null) return; // cancelled
     const trimmed = newText.trim();
     if(!trimmed){ setStatus('Slogan cannot be empty'); return; }
-    saveLedSlogan(trimmed, chosenColor);
+    const currentSpeed = Number(matchInfo.led_slogan_speed) || 12;
+    const speedInput = window.prompt('Scroll speed — seconds for one full pass (lower = faster, e.g. 6 = fast, 12 = normal, 24 = slow)', String(currentSpeed));
+    if(speedInput === null) return; // cancelled
+    let speed = parseFloat(speedInput);
+    if(isNaN(speed)) speed = currentSpeed;
+    speed = Math.min(60, Math.max(3, speed));
+    saveLedSlogan(trimmed, chosenColor, speed);
   };
   colorInput.addEventListener('change', proceed);
   // Some browsers don't fire 'change' if the color picker is dismissed without a pick — fall back after it loses focus.
@@ -2804,11 +2817,12 @@ function editLedSlogan(){
   colorInput.click();
 }
 
-async function saveLedSlogan(text, color){
+async function saveLedSlogan(text, color, speed){
   matchInfo.led_slogan = text;
   matchInfo.led_slogan_color = color;
+  matchInfo.led_slogan_speed = speed;
   render();
-  const { error } = await sbClient.from('match_info').update({ led_slogan: text, led_slogan_color: color }).eq('id', 1);
+  const { error } = await sbClient.from('match_info').update({ led_slogan: text, led_slogan_color: color, led_slogan_speed: speed }).eq('id', 1);
   setStatus(error ? 'Could not save slogan — try again' : 'LED slogan updated');
 }
 

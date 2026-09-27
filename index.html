@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Futsal — Attendance</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap');
@@ -28,6 +28,7 @@
     margin:0;
     padding:0;
     background-color:var(--bg-night);
+    touch-action:manipulation; /* blocks double-tap-to-zoom, keeps single-tap fast */
   }
 
   html{
@@ -1509,11 +1510,10 @@
     gap:8px;
     margin-bottom:22px;
     position:sticky;
-    top:calc(85px + env(safe-area-inset-top, 0px));
-    z-index:20;
-    isolation:isolate;
+    top:calc(85px + env(safe-area-inset-top, 0px) - 6px);
+    z-index:5;
     background:var(--bg-night);
-    padding:10px 0 8px;
+    padding:16px 0 8px;
     margin-left:-18px;
     margin-right:-18px;
     padding-left:18px;
@@ -2268,6 +2268,19 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ---------- Disable pinch/double-tap zoom (belt-and-braces alongside the
+   viewport meta tag + touch-action:manipulation — iOS Safari sometimes
+   ignores user-scalable=no on its own) ---------- */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+let _lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if(now - _lastTouchEnd <= 300) e.preventDefault();
+  _lastTouchEnd = now;
+}, { passive: false });
+
 /* ---------- Supabase auth ---------- */
 const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4PVeckKY4sIQQ_9W11cAFg_H9k1YMX6';

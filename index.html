@@ -967,7 +967,24 @@
 
   @media print{
     @page{ margin:12mm; }
-    body::before{display:none;}
+    /* The real cause of the "dark spots": #appWrap (and the auth
+       screens) still occupy their full normal-flow height even when
+       only visibility-hidden, since visibility:hidden doesn't remove
+       an element from layout. That pushes the document tall enough to
+       spill onto a second page, and with nothing else painted there,
+       the page's own dark background color shows through as a solid
+       block. Setting these to display:none removes them (and their
+       height) from the page entirely — the #printable* divs live
+       outside all three, so this can't hide the report itself. The
+       fixed pitch-line/floodlight pseudo-elements are a second, separate
+       source of stray dark layers (position:fixed + backdrop-filter can
+       ignore visibility:hidden in some browsers' print engines), so
+       those get force-hidden too, as does the header/bottom nav/any
+       full-screen overlay. */
+    html, body{background:#fff !important;}
+    body::before, body::after{display:none !important;}
+    #authWrap, #resetWrap, #appWrap{display:none !important;}
+    .top-bar, .top-bar-spacer, .tab-bar, .profile-screen, .attend-modal{display:none !important;}
     body *{visibility:hidden;}
     body.print-attendance #printable, body.print-attendance #printable *{visibility:visible;}
     body.print-balance #printableBalance, body.print-balance #printableBalance *{visibility:visible;}

@@ -2159,6 +2159,31 @@
   </div>
 </div>
 
+<!-- LED slogan editor (admin only) — a proper in-page form instead of
+     window.prompt()/native color-input.click(), since prompt() and
+     programmatic color-picker opens are unreliable or silently no-op
+     on many mobile browsers and installed home-screen apps. -->
+<div class="attend-modal" id="ledEditModal" style="display:none">
+  <div class="attend-modal-card" style="text-align:left;">
+    <h2 style="text-align:center;">Edit LED slogan</h2>
+    <div class="auth-field">
+      <label for="ledTextInput">Scrolling text</label>
+      <input type="text" id="ledTextInput" maxlength="60" placeholder="PLAY SWEAT REPEAT">
+    </div>
+    <div class="auth-field">
+      <label for="ledColorInput">Font color</label>
+      <input type="color" id="ledColorInput" style="width:100%;height:44px;padding:4px;cursor:pointer;">
+    </div>
+    <div class="auth-field" style="margin-bottom:6px;">
+      <label for="ledSpeedInput">Scroll speed — seconds per pass (lower = faster)</label>
+      <input type="number" id="ledSpeedInput" min="3" max="60" step="1" inputmode="numeric">
+    </div>
+    <div class="auth-msg" id="ledEditMsg"></div>
+    <button class="auth-submit" id="ledEditSaveBtn" onclick="saveLedSloganFromModal()">Save</button>
+    <button class="attend-modal-skip" onclick="closeLedEditModal()" style="display:block;margin:12px auto 0;">Cancel</button>
+  </div>
+</div>
+
 <!-- Printable summary, only shown to the print engine -->
 <div id="printable">
   <div class="print-header">
@@ -2289,11 +2314,18 @@
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
 document.addEventListener('gestureend', e => e.preventDefault());
+// Only block an actual double-tap-to-zoom (two quick taps on the SAME
+// element) — the earlier version blocked any two taps anywhere within
+// 300ms, which also swallowed the click when someone tapped one button
+// then quickly tapped another (e.g. Download → Download Attendance),
+// breaking things like the PDF/print downloads.
 let _lastTouchEnd = 0;
+let _lastTouchTarget = null;
 document.addEventListener('touchend', e => {
   const now = Date.now();
-  if(now - _lastTouchEnd <= 300) e.preventDefault();
+  if(now - _lastTouchEnd <= 300 && e.target === _lastTouchTarget) e.preventDefault();
   _lastTouchEnd = now;
+  _lastTouchTarget = e.target;
 }, { passive: false });
 
 /* ---------- Supabase auth ---------- */
@@ -2781,40 +2813,30 @@ function renderLedTicker(){
 
 function editLedSlogan(){
   if(!isAdmin) return;
-  // Open the native color picker FIRST, synchronously inside this click
-  // handler — calling colorInput.click() after a blocking window.prompt()
-  // loses the browser's "user gesture" flag, which silently stops the
-  // color dialog from opening at all (and the whole edit from saving).
-  const colorInput = document.createElement('input');
-  colorInput.type = 'color';
-  colorInput.value = matchInfo.led_slogan_color || '#f0a531';
-  colorInput.style.position = 'fixed';
-  colorInput.style.top = '-100px';
-  colorInput.style.opacity = '0';
-  document.body.appendChild(colorInput);
-  let done = false;
-  const proceed = () => {
-    if(done) return;
-    done = true;
-    const chosenColor = colorInput.value;
-    if(colorInput.parentNode) document.body.removeChild(colorInput);
-    const currentText = matchInfo.led_slogan || 'PLAY SWEAT REPEAT';
-    const newText = window.prompt('Text for the scrolling LED slogan', currentText);
-    if(newText === null) return; // cancelled
-    const trimmed = newText.trim();
-    if(!trimmed){ setStatus('Slogan cannot be empty'); return; }
-    const currentSpeed = Number(matchInfo.led_slogan_speed) || 12;
-    const speedInput = window.prompt('Scroll speed — seconds for one full pass (lower = faster, e.g. 6 = fast, 12 = normal, 24 = slow)', String(currentSpeed));
-    if(speedInput === null) return; // cancelled
-    let speed = parseFloat(speedInput);
-    if(isNaN(speed)) speed = currentSpeed;
-    speed = Math.min(60, Math.max(3, speed));
-    saveLedSlogan(trimmed, chosenColor, speed);
-  };
-  colorInput.addEventListener('change', proceed);
-  // Some browsers don't fire 'change' if the color picker is dismissed without a pick — fall back after it loses focus.
-  colorInput.addEventListener('blur', () => setTimeout(proceed, 200));
-  colorInput.click();
+  document.getElementById('ledTextInput').value = matchInfo.led_slogan || 'PLAY SWEAT REPEAT';
+  document.getElementById('ledColorInput').value = matchInfo.led_slogan_color || '#f0a531';
+  document.getElementById('ledSpeedInput').value = Number(matchInfo.led_slogan_speed) || 12;
+  setProfileMsg('ledEditMsg', '', '');
+  document.getElementById('ledEditModal').style.display = 'flex';
+}
+
+function closeLedEditModal(){
+  document.getElementById('ledEditModal').style.display = 'none';
+}
+
+async function saveLedSloganFromModal(){
+  const text = document.getElementById('ledTextInput').value.trim();
+  const color = document.getElementById('ledColorInput').value || '#f0a531';
+  let speed = parseFloat(document.getElementById('ledSpeedInput').value);
+  if(!text){ setProfileMsg('ledEditMsg', 'Slogan cannot be empty', 'error'); return; }
+  if(isNaN(speed)) speed = 12;
+  speed = Math.min(60, Math.max(3, speed));
+
+  const btn = document.getElementById('ledEditSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  await saveLedSlogan(text, color, speed);
+  if(btn){ btn.disabled = false; btn.textContent = 'Save'; }
+  closeLedEditModal();
 }
 
 async function saveLedSlogan(text, color, speed){

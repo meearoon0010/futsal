@@ -1517,7 +1517,23 @@
     margin-right:-18px;
     padding-left:18px;
     padding-right:18px;
-    box-shadow:0 8px 12px -6px rgba(0,0,0,0.35);
+  }
+  /* No boxed background on the row itself — instead a soft gradient
+     scrim sits behind the two pill buttons (which are opaque on their
+     own), solid right at the button row to seal the seam with the
+     header above, then fading to fully transparent over the next ~28px
+     so list rows scrolling up dissolve away as they pass underneath,
+     rather than popping in/out or bleeding through. */
+  .account-menu::before{
+    content:'';
+    position:absolute;
+    left:0;
+    right:0;
+    top:-10px;
+    height:calc(100% + 38px);
+    background:linear-gradient(to bottom, var(--bg-night) 0%, var(--bg-night) 65%, transparent 100%);
+    z-index:-1;
+    pointer-events:none;
   }
   .account-menu-item{
     flex:1 1 0;
@@ -2758,12 +2774,10 @@ function renderLedTicker(){
 
 function editLedSlogan(){
   if(!isAdmin) return;
-  const currentText = matchInfo.led_slogan || 'PLAY SWEAT REPEAT';
-  const newText = window.prompt('Text for the scrolling LED slogan', currentText);
-  if(newText === null) return; // cancelled
-  const trimmed = newText.trim();
-  if(!trimmed){ setStatus('Slogan cannot be empty'); return; }
-
+  // Open the native color picker FIRST, synchronously inside this click
+  // handler — calling colorInput.click() after a blocking window.prompt()
+  // loses the browser's "user gesture" flag, which silently stops the
+  // color dialog from opening at all (and the whole edit from saving).
   const colorInput = document.createElement('input');
   colorInput.type = 'color';
   colorInput.value = matchInfo.led_slogan_color || '#f0a531';
@@ -2771,16 +2785,22 @@ function editLedSlogan(){
   colorInput.style.top = '-100px';
   colorInput.style.opacity = '0';
   document.body.appendChild(colorInput);
-  let saved = false;
-  const finish = () => {
-    if(saved) return;
-    saved = true;
+  let done = false;
+  const proceed = () => {
+    if(done) return;
+    done = true;
+    const chosenColor = colorInput.value;
     if(colorInput.parentNode) document.body.removeChild(colorInput);
-    saveLedSlogan(trimmed, colorInput.value);
+    const currentText = matchInfo.led_slogan || 'PLAY SWEAT REPEAT';
+    const newText = window.prompt('Text for the scrolling LED slogan', currentText);
+    if(newText === null) return; // cancelled
+    const trimmed = newText.trim();
+    if(!trimmed){ setStatus('Slogan cannot be empty'); return; }
+    saveLedSlogan(trimmed, chosenColor);
   };
-  colorInput.addEventListener('change', finish);
+  colorInput.addEventListener('change', proceed);
   // Some browsers don't fire 'change' if the color picker is dismissed without a pick — fall back after it loses focus.
-  colorInput.addEventListener('blur', () => setTimeout(finish, 200));
+  colorInput.addEventListener('blur', () => setTimeout(proceed, 200));
   colorInput.click();
 }
 

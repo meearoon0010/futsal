@@ -1589,6 +1589,38 @@
   }
   .join-actions .toggle-btn{flex:1;border-radius:0;}
 
+
+  /* ---------- Join requests ---------- */
+  .request-badge{
+    display:inline-block;min-width:20px;padding:1px 7px;margin-left:8px;border-radius:999px;
+    background:var(--amber);color:#1c1200;font-size:12px;font-weight:800;text-align:center;
+  }
+  .request-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    padding:14px 0;border-bottom:1px solid var(--line);
+  }
+  .request-name{font-size:15px;font-weight:700;color:var(--chalk);}
+  .request-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .request-actions{display:flex;gap:8px;}
+  .request-btn{
+    border:1px solid var(--line);border-radius:9px;background:var(--bg-panel);color:var(--chalk);
+    font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;
+  }
+  .request-btn.accept{background:var(--turf-bright);color:#08130c;border-color:var(--turf-bright);}
+  .request-btn.reject:hover{border-color:var(--red);color:var(--red);}
+  .request-btn:disabled{opacity:.5;cursor:default;}
+  .approval-gate{
+    position:fixed;inset:0;z-index:300;background:var(--bg-night);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .approval-card{
+    max-width:380px;width:100%;text-align:center;padding:28px 22px;border:1px solid var(--line);
+    border-radius:14px;background:var(--bg-panel);
+  }
+  .approval-card h2{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.5px;margin:0 0 10px;color:var(--chalk);}
+  .approval-card p{font-size:14px;line-height:1.5;color:var(--muted);margin:0 0 18px;}
+  @media print{ .approval-gate{display:none !important;} }
+
   .admin-badge{
     display:inline-block;
     margin-left:6px;
@@ -2027,6 +2059,10 @@
           <span>My Stats</span>
           <span class="profile-menu-chevron">›</span>
         </button>
+        <button type="button" class="profile-menu-item admin-only" data-panel="requests" onclick="openProfileScreen('requests')">
+          <span>Requests <span class="request-badge" id="requestBadge" style="display:none">0</span></span>
+          <span class="profile-menu-chevron">›</span>
+        </button>
       </div>
 
       <div class="profile-block" style="border-top:none;padding-top:0;">
@@ -2114,6 +2150,18 @@
     </div>
   </div>
 
+  <div class="profile-screen" id="profileScreen-requests">
+    <div class="profile-screen-header">
+      <span class="profile-screen-title">Join Requests</span>
+      <button type="button" class="profile-screen-close" onclick="closeProfileScreen()" aria-label="Close">✕</button>
+    </div>
+    <div class="profile-screen-body">
+      <div id="requestList"></div>
+      <div class="empty-note" id="requestEmpty" style="display:none">No pending requests.</div>
+      <span class="note" style="display:block;margin-top:12px;">New sign-ups only join the roster, teams and balance list once you accept them.</span>
+    </div>
+  </div>
+
   <div class="profile-screen" id="profileScreen-download">
     <div class="profile-screen-header">
       <span class="profile-screen-title">Download</span>
@@ -2145,6 +2193,15 @@
 </div>
 
 <!-- Attendance prompt: shown right after login until the player answers -->
+<!-- Shown to a new user until the admin accepts (or after a rejection) -->
+<div class="approval-gate" id="approvalGate" style="display:none">
+  <div class="approval-card">
+    <h2 id="approvalTitle">Waiting for approval</h2>
+    <p id="approvalText">Your request to join has been sent. The admin will review it — this screen updates automatically once you're accepted.</p>
+    <button type="button" class="logout-btn" onclick="handleLogout()">Log out</button>
+  </div>
+</div>
+
 <div class="attend-modal" id="attendModal" style="display:none">
   <div class="attend-modal-card">
     <h2>Are you playing?</h2>
@@ -2521,6 +2578,8 @@ let matchInfo = { venue: 'Central Futsal Arena', kickoff_time: 'Fri, 7:00 PM', n
 let players = []; // rows from public.players: {id, user_id, display_name, attend, group_name}
 let expenses = []; // rows from public.expenses: {id, venue, amount, spent_on}
 let balanceTransactions = []; // rows from public.balance_transactions: {id, player_id, amount, resulting_balance, created_at}
+let pendingPlayers = []; // sign-ups waiting for the admin's decision
+let myApproval = 'approved'; // this user's own approval_status
 let matchHistory = []; // rows from public.match_history: {id, player_id, match_date, venue, group_name, result, goals}
 let matchScorecards = []; // last 5 rows from public.match_scorecards: {id, match_date, venue, kickoff_time, goals_a, goals_b, result} — newest first
 let expandedHistory = new Set(); // player ids whose history is expanded (admin view, in the Balance table)
@@ -2583,10 +2642,13 @@ function showAuthScreen(){
   document.getElementById('resetWrap').style.display = 'none';
   document.getElementById('authWrap').style.display = 'block';
   document.getElementById('attendModal').style.display = 'none';
+  const gate = document.getElementById('approvalGate'); if(gate) gate.style.display = 'none';
   showLogin();
   if(realtimeChannel){ sbClient.removeChannel(realtimeChannel); realtimeChannel = null; }
   loaded = false;
   players = [];
+  pendingPlayers = [];
+  myApproval = 'approved';
   myPlayerId = null;
   myUserId = null;
   prevMineAttend = undefined;
@@ -2628,7 +2690,14 @@ async function loadAllData(){
     sbClient.from('match_scorecards').select('*').order('created_at', { ascending: false }).limit(5)
   ]);
   if(!matchResult.error && matchResult.data) matchInfo = matchResult.data;
-  if(!playersResult.error) players = playersResult.data || [];
+  if(!playersResult.error){
+    const allRows = playersResult.data || [];
+    const own = allRows.find(p => p.user_id === myUserId);
+    myApproval = own ? (own.approval_status || 'approved') : 'approved';
+    // Only accepted people appear in the roster, teams, balances, reports…
+    players = allRows.filter(p => (p.approval_status || 'approved') === 'approved');
+    pendingPlayers = allRows.filter(p => p.approval_status === 'pending');
+  }
   if(!expensesResult.error) expenses = expensesResult.data || [];
   if(!txResult.error) balanceTransactions = txResult.data || [];
   if(!historyResult.error) matchHistory = historyResult.data || [];
@@ -2636,6 +2705,7 @@ async function loadAllData(){
   const mine = players.find(p => p.user_id === myUserId);
   myPlayerId = mine ? mine.id : myPlayerId;
   loaded = true;
+  renderApprovalGate();
   render();
   maybeShowAttendPrompt();
   maybeShowRenewPrompt();
@@ -3508,6 +3578,61 @@ function setProfileMsg(id, msg, type){
   el.className = 'auth-msg' + (type ? ' '+type : '');
 }
 
+/* ---------- Join requests: new sign-ups wait for the admin ---------- */
+function renderApprovalGate(){
+  const gate = document.getElementById('approvalGate');
+  if(!gate) return;
+  if(isAdmin || myApproval === 'approved'){ gate.style.display = 'none'; return; }
+  const rejected = myApproval === 'rejected';
+  document.getElementById('approvalTitle').textContent = rejected ? 'Request declined' : 'Waiting for approval';
+  document.getElementById('approvalText').textContent = rejected
+    ? 'The admin has declined your request to join. Please contact the admin if you think this is a mistake.'
+    : "Your request to join has been sent. The admin will review it — this screen updates automatically once you're accepted.";
+  gate.style.display = 'flex';
+}
+
+function renderRequests(){
+  const badge = document.getElementById('requestBadge');
+  const list = document.getElementById('requestList');
+  const empty = document.getElementById('requestEmpty');
+  if(!badge || !list || !empty) return;
+  const n = isAdmin ? pendingPlayers.length : 0;
+  badge.textContent = n;
+  badge.style.display = n ? 'inline-block' : 'none';
+  list.innerHTML = '';
+  empty.style.display = n ? 'none' : 'block';
+  if(!isAdmin) return;
+  pendingPlayers.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'request-row';
+    const info = document.createElement('div');
+    const nm = document.createElement('div'); nm.className = 'request-name'; nm.textContent = p.display_name;
+    const meta = document.createElement('div'); meta.className = 'request-meta';
+    meta.textContent = 'Requested ' + (p.created_at ? new Date(p.created_at).toLocaleDateString() : '');
+    info.appendChild(nm); info.appendChild(meta);
+    const actions = document.createElement('div'); actions.className = 'request-actions';
+    const rej = document.createElement('button'); rej.className = 'request-btn reject'; rej.textContent = 'Reject';
+    rej.onclick = () => decideRequest(p.id, 'rejected', rej);
+    const acc = document.createElement('button'); acc.className = 'request-btn accept'; acc.textContent = 'Accept';
+    acc.onclick = () => decideRequest(p.id, 'approved', acc);
+    actions.appendChild(rej); actions.appendChild(acc);
+    row.appendChild(info); row.appendChild(actions);
+    list.appendChild(row);
+  });
+}
+
+async function decideRequest(id, status, btn){
+  if(!isAdmin) return;
+  const p = pendingPlayers.find(x => x.id === id);
+  if(status === 'rejected' && !confirm(`Reject ${p ? p.display_name : 'this user'}'s request to join?`)) return;
+  const row = btn && btn.closest('.request-row');
+  if(row) row.querySelectorAll('button').forEach(b => b.disabled = true);
+  const { error } = await sbClient.from('players').update({ approval_status: status }).eq('id', id);
+  if(error){ setStatus('Could not save decision — try again'); await loadAllData(); return; }
+  setStatus(status === 'approved' ? `${p ? p.display_name : 'User'} added to the roster` : 'Request rejected');
+  await loadAllData();
+}
+
 function openProfileScreen(name){
   document.querySelectorAll('.profile-screen').forEach(s => s.classList.remove('active'));
   const screen = document.getElementById('profileScreen-' + name);
@@ -3525,6 +3650,7 @@ function closeProfileScreen(){
 }
 
 function renderProfileTab(mine){
+  renderRequests();
   const nameInput = document.getElementById('profileNameInput');
   if(nameInput && document.activeElement !== nameInput){
     nameInput.value = mine ? mine.display_name : '';

@@ -3018,8 +3018,9 @@ async function finishEdit(field){
 
 /* ---------- Players ---------- */
 /* Admin: add guest players, remove anyone.
-   Anyone signed in: mark only their own attendance (group auto-assigned),
-   and move ANY player between Group A / Group B. */
+   Anyone signed in: mark only their own attendance (group auto-assigned).
+   Anyone APPROVED (or the admin): move ANY player between Group A / Group B —
+   a still-pending sign-up cannot touch the confirmed roster's teams. */
 async function addPlayer(){
   if(!isAdmin) return;
   const input = document.getElementById('newPlayerInput');
@@ -3083,7 +3084,13 @@ async function removePlayer(id){
 }
 
 async function swapGroup(id){
-  // Any signed-in user can move any player between Group A and Group B.
+  // Any APPROVED signed-in user can move any player between Group A and
+  // Group B — but a new sign-up who is still pending (or was rejected)
+  // must not be able to rearrange the confirmed roster's teams.
+  if(!isAdmin && myApproval !== 'approved'){
+    setStatus('Your account is still pending admin approval');
+    return;
+  }
   const p = players.find(p=>p.id===id);
   if(!p) return;
   const newGroup = p.group_name === 'A' ? 'B' : 'A';
@@ -4076,19 +4083,23 @@ function render(){
     yesPlayers.filter(p=>p.group_name==='A').forEach(p=>{
       const li = document.createElement('li');
       li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
-      const swap = document.createElement('button');
-      swap.className='swap-btn'; swap.textContent='move →';
-      swap.onclick = ()=>swapGroup(p.id);
-      li.appendChild(swap);
+      if(isAdmin || myApproval === 'approved'){
+        const swap = document.createElement('button');
+        swap.className='swap-btn'; swap.textContent='move →';
+        swap.onclick = ()=>swapGroup(p.id);
+        li.appendChild(swap);
+      }
       aList.appendChild(li);
     });
     yesPlayers.filter(p=>p.group_name==='B').forEach(p=>{
       const li = document.createElement('li');
       li.innerHTML = `<span>${escapeHtml(p.display_name)}</span>`;
-      const swap = document.createElement('button');
-      swap.className='swap-btn'; swap.textContent='← move';
-      swap.onclick = ()=>swapGroup(p.id);
-      li.appendChild(swap);
+      if(isAdmin || myApproval === 'approved'){
+        const swap = document.createElement('button');
+        swap.className='swap-btn'; swap.textContent='← move';
+        swap.onclick = ()=>swapGroup(p.id);
+        li.appendChild(swap);
+      }
       bList.appendChild(li);
     });
   }

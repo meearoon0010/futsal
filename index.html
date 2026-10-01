@@ -564,6 +564,17 @@
     line-height:1;
   }
   .remove-btn:hover{color:var(--red);}
+  .pw-reset-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:15px;
+    cursor:pointer;
+    padding:2px 4px;
+    line-height:1;
+    transition:color .12s ease;
+  }
+  .pw-reset-btn:hover{color:var(--amber);}
 
   .empty-note{
     color:var(--muted);
@@ -2262,6 +2273,26 @@
   </div>
 </div>
 
+<!-- Admin: reset a player's password directly — for players who forgot
+     theirs, or signed up with an email they don't actually have access
+     to (so the usual "forgot password" email link can never reach them). -->
+<div class="attend-modal" id="resetPwModal" style="display:none">
+  <div class="attend-modal-card" style="text-align:left;">
+    <h2 style="text-align:center;">Reset player's password</h2>
+    <p class="attend-modal-sub" id="resetPwPlayerName"></p>
+    <div class="auth-field">
+      <label for="resetPwInput">New password</label>
+      <div class="password-field">
+        <input type="text" id="resetPwInput" placeholder="At least 6 characters" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <button class="download-btn secondary" type="button" onclick="generateRandomPassword()" style="width:100%;margin-bottom:14px;">Generate random password</button>
+    <div class="auth-msg" id="resetPwMsg"></div>
+    <button class="auth-submit" id="resetPwSaveBtn" onclick="submitPasswordReset()">Set password</button>
+    <button class="attend-modal-skip" onclick="closeResetPwModal()" style="display:block;margin:12px auto 0;">Cancel</button>
+  </div>
+</div>
+
 <!-- Printable summary, only shown to the print engine -->
 <div id="printable">
   <div class="print-header">
@@ -2989,6 +3020,62 @@ async function saveLedSlogan(text, color, speed){
     setStatus('LED slogan updated');
   }
   return { error };
+}
+
+/* ---------- Admin: reset a player's password directly ----------
+   Needs the "admin-reset-password" Supabase Edge Function to be deployed
+   (see /supabase/functions/admin-reset-password/index.ts) — the actual
+   password change requires the service-role key, which must never be
+   placed in this client-side file, so it's done through that function. */
+let _resetPwTargetUserId = null;
+
+function openResetPasswordModal(playerId){
+  if(!isAdmin) return;
+  const p = players.find(pl => pl.id === playerId);
+  if(!p || !p.user_id){ setStatus('No account found for this player'); return; }
+  _resetPwTargetUserId = p.user_id;
+  document.getElementById('resetPwPlayerName').textContent = `Setting a new password for ${p.display_name}.`;
+  document.getElementById('resetPwInput').value = '';
+  setProfileMsg('resetPwMsg', '', '');
+  document.getElementById('resetPwModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('resetPwInput').focus(), 60);
+}
+
+function closeResetPwModal(){
+  document.getElementById('resetPwModal').style.display = 'none';
+  _resetPwTargetUserId = null;
+}
+
+function generateRandomPassword(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pw = '';
+  for(let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  document.getElementById('resetPwInput').value = pw;
+}
+
+async function submitPasswordReset(){
+  if(!_resetPwTargetUserId) return;
+  const newPassword = document.getElementById('resetPwInput').value;
+  if(!newPassword || newPassword.length < 6){
+    setProfileMsg('resetPwMsg', 'Password must be at least 6 characters', 'error');
+    return;
+  }
+  const btn = document.getElementById('resetPwSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Setting…'; }
+
+  const { data, error } = await sbClient.functions.invoke('admin-reset-password', {
+    body: { user_id: _resetPwTargetUserId, new_password: newPassword }
+  });
+
+  if(btn){ btn.disabled = false; btn.textContent = 'Set password'; }
+
+  if(error || data?.error){
+    const message = (data && data.error) || error?.message || 'unknown error';
+    setProfileMsg('resetPwMsg', 'Could not reset password: ' + message + '. Make sure the admin-reset-password Edge Function has been deployed.', 'error');
+    return;
+  }
+
+  setProfileMsg('resetPwMsg', 'Password updated — share it with the player directly. They can change it themselves afterwards from Profile → Change password.', 'success');
 }
 
 
@@ -3879,6 +3966,14 @@ function render(){
     row.appendChild(toggles);
 
     if(isAdmin){
+      if(p.user_id){
+        const pwBtn = document.createElement('button');
+        pwBtn.className = 'pw-reset-btn';
+        pwBtn.textContent = '🔑';
+        pwBtn.title = 'Reset this player\'s password';
+        pwBtn.onclick = ()=>openResetPasswordModal(p.id);
+        row.appendChild(pwBtn);
+      }
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
       removeBtn.textContent = '✕';

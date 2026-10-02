@@ -3078,7 +3078,7 @@ async function submitPasswordReset(){
   // players isn't allowed to store email client-side, so the only way to
   // confirm which account this was — if a login attempt afterwards fails —
   // is to look this ID up in Supabase ▸ Authentication ▸ Users.
-  setProfileMsg('resetPwMsg', `Password updated for account ${_resetPwTargetUserId}. Share the password with the player directly. If their login still fails, search this ID under Authentication → Users in Supabase to confirm it's the email they're using.`, 'success');
+  setProfileMsg('resetPwMsg', `Password set (and email confirmed) for account ${_resetPwTargetUserId}. Share the password with the player directly. If their login still fails, search this ID under Authentication → Users in Supabase to confirm it's the email they're using.`, 'success');
 }
 
 

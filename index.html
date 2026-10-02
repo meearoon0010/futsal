@@ -3055,7 +3055,7 @@ function generateRandomPassword(){
 
 async function submitPasswordReset(){
   if(!_resetPwTargetUserId) return;
-  const newPassword = document.getElementById('resetPwInput').value;
+  const newPassword = document.getElementById('resetPwInput').value.trim();
   if(!newPassword || newPassword.length < 6){
     setProfileMsg('resetPwMsg', 'Password must be at least 6 characters', 'error');
     return;
@@ -3075,7 +3075,10 @@ async function submitPasswordReset(){
     return;
   }
 
-  setProfileMsg('resetPwMsg', 'Password updated — share it with the player directly. They can change it themselves afterwards from Profile → Change password.', 'success');
+  // players isn't allowed to store email client-side, so the only way to
+  // confirm which account this was — if a login attempt afterwards fails —
+  // is to look this ID up in Supabase ▸ Authentication ▸ Users.
+  setProfileMsg('resetPwMsg', `Password updated for account ${_resetPwTargetUserId}. Share the password with the player directly. If their login still fails, search this ID under Authentication → Users in Supabase to confirm it's the email they're using.`, 'success');
 }
 
 

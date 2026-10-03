@@ -32,6 +32,7 @@
     padding:0;
     background-color:var(--bg-night);
     touch-action:manipulation; /* blocks double-tap-to-zoom, keeps single-tap fast */
+    overscroll-behavior-y:contain; /* stop the browser's own native pull-to-refresh from also firing */
   }
 
   html{
@@ -254,6 +255,40 @@
   }
   .top-bar-spacer{
     height:var(--header-h);
+  }
+
+  /* ---------- Pull-to-refresh indicator (a spinning ball) ---------- */
+  #pullRefreshIndicator{
+    position:fixed;
+    left:50%;
+    top:var(--header-h);
+    width:40px;
+    height:40px;
+    margin-top:-20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    line-height:1;
+    opacity:0;
+    pointer-events:none;
+    z-index:30;
+    transform:translate(-50%, -20px);
+    will-change:transform, opacity;
+  }
+  #pullRefreshIndicator .pull-ball{
+    display:inline-block;
+    filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45));
+  }
+  #pullRefreshIndicator.spinning .pull-ball{
+    animation:pull-ball-spin 0.7s linear infinite;
+  }
+  @keyframes pull-ball-spin{
+    from{ transform:rotate(0deg); }
+    to{ transform:rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #pullRefreshIndicator.spinning .pull-ball{ animation:none; }
   }
 
   /* ---------- LED scrolling slogan — fills the right side of the header
@@ -1845,6 +1880,10 @@
 
 <div class="app" id="appWrap" style="display:none">
 
+  <!-- Pull-to-refresh: pulling down from the very top of any tab reveals
+       a spinning ball; releasing past the threshold reloads live data. -->
+  <div id="pullRefreshIndicator" aria-hidden="true"><span class="pull-ball">⚽</span></div>
+
   <div class="top-bar">
     <div class="top-bar-inner-wrap">
       <div class="brand">
@@ -2436,6 +2475,82 @@ document.addEventListener('touchend', e => {
   _lastTouchEnd = now;
   _lastTouchTarget = e.target;
 }, { passive: false });
+
+/* ---------- Pull-to-refresh (spinning ball) ----------
+   Pulling down from the very top of the page (scrollY === 0) reveals a
+   ball that rotates as you pull, then spins continuously while the data
+   actually reloads. Only engages once the app is visible (post-login),
+   only reacts to a genuine downward pull from the top, and otherwise
+   leaves normal scrolling/tapping completely alone. */
+(function setupPullToRefresh(){
+  const indicator = document.getElementById('pullRefreshIndicator');
+  if(!indicator) return;
+  const ball = indicator.querySelector('.pull-ball');
+  const THRESHOLD = 70;   // px of (resisted) pull needed to trigger a refresh
+  const MAX_PULL = 110;
+  let startY = 0;
+  let pulling = false;
+  let refreshing = false;
+
+  function appVisible(){
+    const appWrap = document.getElementById('appWrap');
+    return appWrap && appWrap.style.display !== 'none';
+  }
+
+  function onTouchStart(e){
+    if(refreshing || !appVisible() || e.touches.length !== 1) return;
+    if(window.scrollY > 2){ pulling = false; return; }
+    startY = e.touches[0].clientY;
+    pulling = true;
+  }
+
+  function onTouchMove(e){
+    if(!pulling || refreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if(dy <= 0) return; // only a downward pull counts
+    if(window.scrollY > 2){ pulling = false; resetIndicator(); return; }
+    const pull = Math.min(dy * 0.5, MAX_PULL); // rubber-band resistance
+    const progress = Math.min(pull / THRESHOLD, 1);
+    indicator.style.transition = 'none';
+    indicator.style.opacity = String(progress);
+    indicator.style.transform = `translate(-50%, ${pull - 20}px)`;
+    ball.style.transform = `rotate(${pull * 4}deg)`;
+    if(pull > 4 && e.cancelable) e.preventDefault(); // stop the page rubber-banding once we've taken over the gesture
+  }
+
+  function onTouchEnd(){
+    if(!pulling || refreshing){ pulling = false; return; }
+    pulling = false;
+    const progress = parseFloat(indicator.style.opacity || '0');
+    if(progress >= 1) triggerRefresh();
+    else resetIndicator();
+  }
+
+  function resetIndicator(){
+    indicator.style.transition = 'opacity .2s ease, transform .2s ease';
+    indicator.style.opacity = '0';
+    indicator.style.transform = 'translate(-50%, -20px)';
+    ball.style.transform = '';
+  }
+
+  async function triggerRefresh(){
+    refreshing = true;
+    indicator.classList.add('spinning');
+    indicator.style.transition = 'opacity .15s ease, transform .15s ease';
+    indicator.style.opacity = '1';
+    indicator.style.transform = 'translate(-50%, 16px)';
+    ball.style.transform = '';
+    try{ await loadAllData(); } catch(e){ /* ignore — resetIndicator runs regardless */ }
+    indicator.classList.remove('spinning');
+    resetIndicator();
+    refreshing = false;
+  }
+
+  document.addEventListener('touchstart', onTouchStart, { passive:true });
+  document.addEventListener('touchmove', onTouchMove, { passive:false });
+  document.addEventListener('touchend', onTouchEnd, { passive:true });
+  document.addEventListener('touchcancel', onTouchEnd, { passive:true });
+})();
 
 /* ---------- Supabase auth ---------- */
 const SUPABASE_URL = 'https://lnikyfsqoylfgwsvegsq.supabase.co';
